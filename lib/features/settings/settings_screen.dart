@@ -12,6 +12,7 @@ import '../feed/local_video_reactions_provider.dart';
 import '../subscriptions/subscription_list_screen.dart';
 import '../subscriptions/subscription_import_screen.dart';
 import 'log_viewer_screen.dart';
+import '../update/update_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -123,6 +124,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     context,
                     MaterialPageRoute(
                         builder: (c) => const SearchSettingsPage())),
+              ),
+            ],
+          ),
+          _SettingsGroup(
+            title: 'Mises à jour',
+            children: [
+              _SettingsTile(
+                icon: Icons.system_update_alt,
+                title: 'Mises à jour de l’application',
+                subtitle: 'Détecter et installer la dernière version GitHub',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const UpdateScreen(),
+                  ),
+                ),
               ),
             ],
           ),
