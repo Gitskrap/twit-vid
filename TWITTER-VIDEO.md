@@ -6,13 +6,21 @@
 
 **Dépôt :** [Gitskrap/twit-vid](https://github.com/Gitskrap/twit-vid)  
 **Nom Android :** « Twitter vidéo » (`fr.twittervideo.client`)  
-**Dernière version vérifiée :** [v0.26.0](https://github.com/Gitskrap/twit-vid/releases/tag/v0.26.0)  
-**APK signé :** [Télécharger v0.26.0 ARM64](https://github.com/Gitskrap/twit-vid/releases/download/v0.26.0/Twitter-video-0.26.0-arm64.apk)
+**Dernière version vérifiée :** [v0.27.0](https://github.com/Gitskrap/twit-vid/releases/tag/v0.27.0)  
+**APK signé :** [Télécharger v0.27.0 ARM64](https://github.com/Gitskrap/twit-vid/releases/download/v0.27.0/Twitter-video-0.27.0-arm64.apk)
 
 Fork libre de [XFlow](https://github.com/Alchemist-Aloha/xflow), sous licence MIT.
 Non affilié à X Corp.
 
 ## Versions récentes
+
+### 0.27.0 — diagnostic de fonctionnement anonyme sur demande
+- L'utilisateur démarre et arrête explicitement une session dans **Paramètres → Diagnostic anonyme**.
+- Enregistre seulement des catégories d'événements techniques avec des durées relatives et des quantités regroupées.
+- **Jamais** de vidéo, compte, abonnement, hashtag, recherche, URL, cookie ou erreur brute dans le rapport.
+- Aperçu du JSON complet avant partage ; aucun envoi automatique et effacement possible.
+- Journal indépendant des logs bruts de l'application, non adapté au partage.
+
 
 ### 0.26.0 — mises à jour directement depuis Twitter vidéo
 - Vérification automatique des dernières versions publiques GitHub après déverrouillage de l'application et contrôle manuel dans les paramètres.
