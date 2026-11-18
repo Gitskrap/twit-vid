@@ -9,6 +9,7 @@ import '../../core/models/tweet.dart';
 import '../../core/database/repository.dart';
 import '../../core/client/discovery_engine.dart';
 import '../../core/utils/app_logger.dart';
+import '../diagnostics/privacy_diagnostics.dart';
 import '../settings/settings_provider.dart';
 import '../subscriptions/subscription_list_screen.dart';
 import 'local_video_filter.dart';
@@ -402,6 +403,8 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
         Future.delayed(Duration.zero, () => _refreshInBackground());
       }
 
+      PrivacyDiagnostics.instance.record(
+          DiagnosticEvent.feedInitialLoad, resultCount: localTagged.length);
       return FeedState(
         tweets: localTagged,
         cursorBottom: null,
@@ -417,6 +420,7 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
     final currentState = state.value;
     if (currentState == null || currentState.isRefreshing) return;
 
+    PrivacyDiagnostics.instance.record(DiagnosticEvent.feedRefreshStarted);
     state = AsyncData(currentState.copyWith(isRefreshing: true));
     await _refreshInBackground(resetHead: true);
   }
@@ -533,10 +537,13 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
           cursorBottom: freshResponse.cursorBottom,
           isRefreshing: false,
         ));
+        PrivacyDiagnostics.instance.record(
+            DiagnosticEvent.feedRefreshCompleted, resultCount: mixed.length);
         debugPrint(
             'XFLOW: Feed state updated from background refresh. Total: ${processed.length}');
       }
     } catch (e) {
+      PrivacyDiagnostics.instance.record(DiagnosticEvent.feedLoadFailed);
       debugPrint('XFLOW: Background refresh error: $e');
       final currentAsync = ref.read(feedNotifierProvider);
       if (currentAsync.hasValue) {
@@ -548,6 +555,7 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
   Future<void> fetchMore() async {
     final currentState = state.value;
     if (currentState == null || currentState.isLoadingMore) return;
+    PrivacyDiagnostics.instance.record(DiagnosticEvent.feedLoadMoreStarted);
 
     final settings = ref.read(settingsProvider);
     final reactions = ref.read(localVideoReactionsProvider).value ??
@@ -576,6 +584,10 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
         tweets: [...currentState.tweets, ...additional],
         isLoadingMore: false,
       ));
+      PrivacyDiagnostics.instance.record(
+          additional.isEmpty ? DiagnosticEvent.feedLoadEmpty
+              : DiagnosticEvent.feedLoadMoreCompleted,
+          resultCount: additional.length);
       return;
     }
 
@@ -604,6 +616,9 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
             tweets: [...currentState.tweets, ...firstFresh],
             isLoadingMore: false,
           ));
+          PrivacyDiagnostics.instance.record(
+              DiagnosticEvent.feedLoadMoreCompleted,
+              resultCount: firstFresh.length);
           return;
         }
       }
@@ -781,9 +796,15 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
         cursorBottom: currentCursor,
         isLoadingMore: false,
       ));
+      final addedCount = combined.length - currentState.tweets.length;
+      PrivacyDiagnostics.instance.record(
+          addedCount <= 0 ? DiagnosticEvent.feedLoadEmpty
+              : DiagnosticEvent.feedLoadMoreCompleted,
+          resultCount: addedCount);
       debugPrint(
           'XFLOW: fetchMore complete. Added ${finalNewTweets.length} tweets. Total: ${combined.length}');
     } catch (e, st) {
+      PrivacyDiagnostics.instance.record(DiagnosticEvent.feedLoadFailed);
       debugPrint('Error fetching more: $e\n$st');
       state = AsyncData(state.value!.copyWith(isLoadingMore: false));
     }
