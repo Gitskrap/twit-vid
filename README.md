@@ -4,8 +4,8 @@
 
 > **Dépôt GitHub :** `Gitskrap/twit-vid`  
 > **Nom sur le téléphone :** **Twitter vidéo**  
-> **Dernière version publiée vérifiée :** [v0.26.0](https://github.com/Gitskrap/twit-vid/releases/tag/v0.26.0)  
-> **Téléchargement Android :** [APK ARM64 signé](https://github.com/Gitskrap/twit-vid/releases/download/v0.26.0/Twitter-video-0.26.0-arm64.apk)
+> **Dernière version publiée vérifiée :** [v0.27.0](https://github.com/Gitskrap/twit-vid/releases/tag/v0.27.0)  
+> **Téléchargement Android :** [APK ARM64 signé](https://github.com/Gitskrap/twit-vid/releases/download/v0.27.0/Twitter-video-0.27.0-arm64.apk)
 
 Ce projet est un **fork indépendant de [XFlow](https://github.com/Alchemist-Aloha/xflow)**. Il n'est ni développé ni approuvé par X Corp.
 
@@ -19,6 +19,7 @@ Ce projet est un **fork indépendant de [XFlow](https://github.com/Alchemist-Alo
 - **Abonnements locaux** : ajouter ou retirer des comptes publics dans l'application sans les suivre sur X ; l'accès aux vidéos dépend toutefois des sources disponibles.
 - **Recherche de vidéos et de hashtags** : tentative par X, source publique de secours, puis résultats déjà présents dans le cache si le réseau ou les services échouent.
 - **Lecteur vertical** : défilement fluide, barre de progression manipulable, son coupé au démarrage, mode paysage et plein écran conservé lors du changement de vidéo.
+- **Diagnostic anonyme sur demande** : enregistrement d'une session d'utilisation, consultation du rapport détaillé puis partage volontaire. Aucun identifiant de vidéo, compte, abonnement, hashtag, mot-clé recherché ou URL n'est enregistré dans ce rapport.
 - **Mises à jour intégrées** : après déverrouillage, l'application vérifie automatiquement les nouvelles GitHub Releases ; une page dans les paramètres permet aussi la vérification manuelle, le téléchargement avec progression et l'installation confirmée par Android. Les APK sont contrôlés par SHA-256 avant installation.
 - **Google Cast (bêta)** : envoi de la vidéo au téléviseur via un relais Wi-Fi local, contrôle du volume et tentative de lecture automatique de la suivante.
 - **Cache et historique locaux** : mémorisation des vidéos vues pour limiter les répétitions entre les sessions.
@@ -32,7 +33,7 @@ Les fonctionnalités dépendant de X ou d'un service public tiers peuvent être 
 3. L'ouvrir sur un téléphone Android ARM64 et autoriser l'installation depuis cette source si Android le demande.
 4. Pour les prochaines mises à jour, installer le nouvel APK **par-dessus l'application existante** : le paquet Android et la signature doivent rester identiques.
 
-**Version actuelle :** [Twitter-video-0.26.0-arm64.apk](https://github.com/Gitskrap/twit-vid/releases/download/v0.26.0/Twitter-video-0.26.0-arm64.apk).
+**Version actuelle :** [Twitter-video-0.27.0-arm64.apk](https://github.com/Gitskrap/twit-vid/releases/download/v0.27.0/Twitter-video-0.27.0-arm64.apk).
 
 L'accès à un compte X est facultatif pour les fonctions locales, mais certaines vidéos ou certaines recherches peuvent nécessiter une session X valide.
 
@@ -81,6 +82,12 @@ La génération **release** demande les informations de signature privée config
 | `lib/core/` | Clients X/publics, modèles et base de données |
 | `test/` | Tests automatiques |
 | `TWITTER-VIDEO.md` | Historique technique des anciennes versions |
+
+## Tester le fonctionnement avec un rapport anonyme
+
+À partir de **0.27.0**, ouvre **Paramètres → Diagnostic anonyme → Démarrer le diagnostic**. Utilise normalement le fil Vidéos, la recherche, les hashtags, les réactions et le Cast pendant plusieurs minutes. Retourne ensuite dans l'écran de diagnostic : appuie sur **Arrêter l’enregistrement**, puis sur **Afficher le rapport complet** pour vérifier son contenu avant de choisir **Partager le rapport anonymisé**. Le bouton **Effacer les données du diagnostic** supprime la session et son fichier temporaire.
+
+**La collecte est désactivée par défaut.** Le journal exporté est séparé des logs techniques bruts ; il contient uniquement un nombre limité d'événements issus d'une liste fermée, des durées relatives depuis le début de la session et des quantités regroupées en tranches. Il ne contient **aucun identifiant ni hash** de publication/vidéo/compte, aucun abonnement, hashtag, texte saisi, URL, message d'erreur brut, cookie, token ou horodatage absolu. Aucune donnée n'est envoyée automatiquement : toi seul choisis si et comment partager le rapport. Les détails techniques non anonymisés visibles dans les anciens logs ne doivent pas être partagés.
 
 ## Confidentialité et limites
 
