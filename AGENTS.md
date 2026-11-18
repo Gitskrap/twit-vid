@@ -57,6 +57,8 @@ Never commit `android/key.properties`, Android keystore files, or authentication
 ## Publishing and versioning
 
 - **Canonical Android CI / Release workflow:** [`.github/workflows/twitter-video-android.yml`](.github/workflows/twitter-video-android.yml).
+- Every signed APK release must publish a matching SHA-256 checksum file as a GitHub Release asset for the in-app updater. The checksum filename is the APK filename followed by `.sha256`.
+- Keep the update API endpoint at `Gitskrap/twit-vid` and do not embed any GitHub token in the Android app.
 - New releases must increment both version and build number in `pubspec.yaml`, plus the workflow's build/release version and filename.
 - The workflow signs releases using GitHub secrets `ANDROID_KEYSTORE_BASE64` and `ANDROID_SIGNING_PASSWORD`. The key must remain stable for updates over the existing app.
 - GitHub Releases and build artifacts are published in **`Gitskrap/twit-vid`**, not the old `Gitskrap/X-vid` address.

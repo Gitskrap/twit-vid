@@ -16,6 +16,7 @@ import 'core/client/background_sync.dart';
 import 'core/client/transaction_id_service.dart';
 import 'core/client/twitter_client.dart';
 import 'features/settings/settings_provider.dart';
+import 'features/update/startup_update_check.dart';
 import 'core/client/twitter_account.dart';
 import 'core/database/repository.dart';
 import 'core/utils/lifecycle_provider.dart';
@@ -88,7 +89,9 @@ class XFlowApp extends ConsumerWidget {
           ),
         ),
       ),
-      home: const BiometricGate(child: MainScaffold()),
+      home: const BiometricGate(
+        child: StartupUpdateCheck(child: MainScaffold()),
+      ),
     );
   }
 }

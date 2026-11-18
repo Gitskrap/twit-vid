@@ -6,13 +6,20 @@
 
 **Dépôt :** [Gitskrap/twit-vid](https://github.com/Gitskrap/twit-vid)  
 **Nom Android :** « Twitter vidéo » (`fr.twittervideo.client`)  
-**Dernière version vérifiée :** [v0.25.0](https://github.com/Gitskrap/twit-vid/releases/tag/v0.25.0)  
-**APK signé :** [Télécharger v0.25.0 ARM64](https://github.com/Gitskrap/twit-vid/releases/download/v0.25.0/Twitter-video-0.25.0-arm64.apk)
+**Dernière version vérifiée :** [v0.26.0](https://github.com/Gitskrap/twit-vid/releases/tag/v0.26.0)  
+**APK signé :** [Télécharger v0.26.0 ARM64](https://github.com/Gitskrap/twit-vid/releases/download/v0.26.0/Twitter-video-0.26.0-arm64.apk)
 
 Fork libre de [XFlow](https://github.com/Alchemist-Aloha/xflow), sous licence MIT.
 Non affilié à X Corp.
 
 ## Versions récentes
+
+### 0.26.0 — mises à jour directement depuis Twitter vidéo
+- Vérification automatique des dernières versions publiques GitHub après déverrouillage de l'application et contrôle manuel dans les paramètres.
+- Téléchargement et installation depuis l'application, avec indication de progression et confirmation par Android.
+- Vérification de l'empreinte SHA-256 fournie avec chaque nouvel APK signé.
+- Aucun secret GitHub intégré au téléphone ; les secrets de signature permanente restent dans GitHub Actions.
+
 
 ### 0.25.0 — recherche, fraîcheur et Cast automatique
 - Recherche vidéo et hashtag avec accès X si possible, recherche publique de secours et cache local.

@@ -1,6 +1,13 @@
 package com.alchemistaloha.xflow
 
 import android.os.SystemClock
+import android.os.Build
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+import android.content.pm.PackageManager
+import java.io.File
+import androidx.core.content.FileProvider
 import android.view.KeyEvent
 import com.google.android.gms.cast.framework.CastContext
 import com.google.android.gms.cast.framework.CastSession
@@ -53,6 +60,80 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        // No APK, token or GitHub secret is embedded in this native channel.
+        // Flutter downloads and verifies a GitHub Release before we show the
+        // normal Android package installation confirmation.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger,
+            "fr.twittervideo.client/updates").setMethodCallHandler { call, result ->
+            when (call.method) {
+                "getInstalledVersion" -> {
+                    try {
+                        val info = packageManager.getPackageInfo(packageName, 0)
+                        val code = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
+                            info.longVersionCode else info.versionCode.toLong()
+                        result.success(mapOf(
+                            "name" to (info.versionName ?: "0.0.0"),
+                            "code" to code
+                        ))
+                    } catch (error: Exception) {
+                        result.error("VERSION_FAILED", error.message, null)
+                    }
+                }
+                "canInstallPackages" -> result.success(
+                    Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
+                        packageManager.canRequestPackageInstalls()
+                )
+                "openInstallPermissionSettings" -> {
+                    try {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            startActivity(Intent(
+                                Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                                Uri.parse("package:$packageName")
+                            ))
+                        } else {
+                            startActivity(Intent(Settings.ACTION_SETTINGS))
+                        }
+                        result.success(null)
+                    } catch (error: Exception) {
+                        result.error("PERMISSION_SETTINGS_FAILED", error.message, null)
+                    }
+                }
+                "installApk" -> {
+                    try {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+                            !packageManager.canRequestPackageInstalls()) {
+                            result.error("INSTALL_PERMISSION_REQUIRED",
+                                "Autorise l'installation de cette source Android", null)
+                            return@setMethodCallHandler
+                        }
+                        val supplied = call.argument<String>("path") ?: ""
+                        val apk = File(supplied).canonicalFile
+                        val allowed = File(cacheDir, "app-updates").canonicalFile
+                        if (!apk.path.startsWith(allowed.path + File.separator) ||
+                            !apk.name.endsWith("-arm64.apk") ||
+                            !apk.isFile || apk.length() <= 0L) {
+                            result.error("INVALID_APK",
+                                "Fichier APK absent ou non autorisé", null)
+                            return@setMethodCallHandler
+                        }
+                        val uri = FileProvider.getUriForFile(
+                            this, "$packageName.updateprovider", apk)
+                        val install = Intent(Intent.ACTION_VIEW).apply {
+                            setDataAndType(uri, "application/vnd.android.package-archive")
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or
+                                Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            clipData = android.content.ClipData.newRawUri("APK", uri)
+                        }
+                        startActivity(install)
+                        result.success(null)
+                    } catch (error: Exception) {
+                        result.error("INSTALL_FAILED", error.message, null)
+                    }
+                }
+                else -> result.notImplemented()
+            }
+        }
+
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger,
             "fr.twittervideo.client/cast_volume").setMethodCallHandler { call, result ->
             val session = currentCast()
