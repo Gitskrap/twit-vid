@@ -17,6 +17,7 @@ import 'core/client/transaction_id_service.dart';
 import 'core/client/twitter_client.dart';
 import 'features/settings/settings_provider.dart';
 import 'features/update/startup_update_check.dart';
+import 'features/diagnostics/privacy_diagnostics.dart';
 import 'core/client/twitter_account.dart';
 import 'core/database/repository.dart';
 import 'core/utils/lifecycle_provider.dart';
@@ -181,6 +182,12 @@ class MainScaffold extends ConsumerWidget {
             : NavigationBar(
           selectedIndex: nav.currentTab.index,
           onDestinationSelected: (index) {
+            if (index >= 0 && index < 3) {
+              PrivacyDiagnostics.instance.record(
+                [DiagnosticEvent.tabVideos, DiagnosticEvent.tabSubscriptions,
+                  DiagnosticEvent.tabHashtags][index],
+              );
+            }
             navNotifier.setTab(MainTab.values[index]);
             if (index == 1) {
               ref.invalidate(subscriptionListProvider);
