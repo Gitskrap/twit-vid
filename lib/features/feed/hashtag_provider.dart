@@ -9,6 +9,7 @@ import '../../core/client/twitter_client.dart';
 import '../../core/database/repository.dart';
 import '../../core/models/tweet.dart';
 import '../settings/settings_provider.dart';
+import '../diagnostics/privacy_diagnostics.dart';
 import 'feed_provider.dart';
 
 class HashtagListNotifier extends AsyncNotifier<List<String>> {
@@ -117,11 +118,16 @@ class HashtagMediaNotifier extends AsyncNotifier<FeedState> {
     // If X and public search are unavailable, the local cache remains
     // searchable. An empty cache gives an explicit error, not a broken page.
     if (tweets.isEmpty && _lastSourceError != null) {
+      PrivacyDiagnostics.instance.record(DiagnosticEvent.hashtagFailed);
       throw StateError(
         'Impossible de charger #${hashtag.replaceFirst('#', '')}. '
         '${_lastSourceError!}',
       );
     }
+    PrivacyDiagnostics.instance.record(
+        tweets.isEmpty ? DiagnosticEvent.hashtagEmpty
+            : DiagnosticEvent.hashtagLoaded,
+        resultCount: tweets.length);
     return FeedState(
       tweets: tweets,
       cursorBottom: response.cursorBottom,

@@ -2,4 +2,5 @@
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Share only the private verified updates directory with Android installer. -->
     <cache-path name="verified_updates" path="app-updates/" />
+    <cache-path name="anonymous_diagnostics" path="anonymous-diagnostics/" />
 </paths>

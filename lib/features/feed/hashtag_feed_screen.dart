@@ -11,6 +11,7 @@ import '../settings/settings_screen.dart';
 import 'hashtag_provider.dart';
 import 'hashtag_blacklist_provider.dart';
 import 'local_video_reactions_provider.dart';
+import '../diagnostics/privacy_diagnostics.dart';
 import 'widgets/tweet_text_overlay.dart';
 
 class HashtagListScreen extends ConsumerWidget {
@@ -241,6 +242,7 @@ class _HashtagMediaFeedScreenState
   void initState() {
     super.initState();
     _pageController.addListener(_handleScroll);
+    PrivacyDiagnostics.instance.record(DiagnosticEvent.hashtagOpened);
   }
 
   @override

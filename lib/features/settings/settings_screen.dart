@@ -12,6 +12,7 @@ import '../feed/local_video_reactions_provider.dart';
 import '../subscriptions/subscription_list_screen.dart';
 import '../subscriptions/subscription_import_screen.dart';
 import 'log_viewer_screen.dart';
+import '../diagnostics/anonymous_diagnostics_screen.dart';
 import '../update/update_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -138,6 +139,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   context,
                   MaterialPageRoute(
                     builder: (_) => const UpdateScreen(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          _SettingsGroup(
+            title: 'Diagnostic anonyme',
+            children: [
+              _SettingsTile(
+                icon: Icons.privacy_tip_outlined,
+                title: 'Enregistrer une session de diagnostic',
+                subtitle: 'Démarrer, arrêter et partager un rapport sans '
+                    'vidéos, comptes, abonnements ni hashtags',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const AnonymousDiagnosticsScreen(),
                   ),
                 ),
               ),
@@ -888,7 +906,9 @@ class DiagnosticSettingsPage extends ConsumerWidget {
           const Divider(),
           ListTile(
             leading: const Icon(Icons.terminal),
-            title: const Text('View App Logs'),
+            title: const Text('Logs bruts (non anonymisés)'),
+            subtitle: const Text('Ne pas partager. Utilise le diagnostic '
+                'anonyme pour transmettre un rapport.'),
             onTap: () => Navigator.push(context,
                 MaterialPageRoute(builder: (c) => const LogViewerScreen())),
           ),

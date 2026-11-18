@@ -19,6 +19,7 @@ import '../player/player_pool_provider.dart';
 import '../player/video_ui_provider.dart';
 import '../settings/settings_provider.dart';
 import 'video_search_utils.dart';
+import '../diagnostics/privacy_diagnostics.dart';
 
 /// Searches videos across X rather than searching only followed accounts.
 /// The result screen reuses the main TikTok-style player and Cast controls.
@@ -47,6 +48,12 @@ class _VideoSearchScreenState extends ConsumerState<VideoSearchScreen> {
   bool _usingPublicSearch = false;
   bool _usingCachedSearch = false;
   bool _poolScheduled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    PrivacyDiagnostics.instance.record(DiagnosticEvent.searchOpened);
+  }
 
   @override
   void dispose() {
@@ -95,6 +102,7 @@ class _VideoSearchScreenState extends ConsumerState<VideoSearchScreen> {
       });
     }
 
+    PrivacyDiagnostics.instance.record(DiagnosticEvent.searchStarted);
     final requestVersion = _searchVersion;
     final cursor = _cursor;
 
@@ -161,6 +169,14 @@ class _VideoSearchScreenState extends ConsumerState<VideoSearchScreen> {
         _error = null;
       });
 
+      PrivacyDiagnostics.instance.record(
+          videos.isEmpty ? DiagnosticEvent.searchEmpty
+              : DiagnosticEvent.searchFound,
+          resultCount: videos.length);
+      if (cacheOnly) {
+        PrivacyDiagnostics.instance.record(
+            DiagnosticEvent.searchCacheFallback);
+      }
       if (videos.isNotEmpty) {
         // Saves only tweet media and engagement, not the search terms.
         unawaited(Repository.insertCachedMedia(videos).catchError((Object e) {
@@ -186,6 +202,10 @@ class _VideoSearchScreenState extends ConsumerState<VideoSearchScreen> {
               _cursor = null;
               _error = null;
             });
+            PrivacyDiagnostics.instance.record(
+                DiagnosticEvent.searchCacheFallback);
+            PrivacyDiagnostics.instance.record(
+                DiagnosticEvent.searchFound, resultCount: accepted.length);
             _warmupPlayers();
             return;
           }
@@ -193,6 +213,7 @@ class _VideoSearchScreenState extends ConsumerState<VideoSearchScreen> {
           // Keep the original error if the local database also fails.
         }
       }
+      PrivacyDiagnostics.instance.record(DiagnosticEvent.searchFailed);
       if (mounted) {
         setState(() => _error =
           'Recherche en ligne indisponible. Vérifie la connexion ou '

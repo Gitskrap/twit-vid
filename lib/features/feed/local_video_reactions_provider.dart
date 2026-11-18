@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/database/repository.dart';
 import '../../core/models/local_video_reaction.dart';
 import '../../core/models/tweet.dart';
+import '../diagnostics/privacy_diagnostics.dart';
 
 /// All reactions are local to Twitter vidéo, independent of the X account.
 final localVideoReactionsProvider =
@@ -36,6 +37,11 @@ class LocalVideoReactionsNotifier
       );
     }
     state = AsyncData(Map<String, LocalVideoReaction>.unmodifiable(next));
+    if (value == 1) {
+      PrivacyDiagnostics.instance.record(DiagnosticEvent.videoLiked);
+    } else if (value == -1) {
+      PrivacyDiagnostics.instance.record(DiagnosticEvent.videoDisliked);
+    }
     try {
       await Repository.setLocalVideoReaction(tweet, value);
     } catch (_) {

@@ -15,6 +15,7 @@ import '../player_pool_provider.dart';
 import '../../settings/settings_provider.dart';
 import '../../feed/local_video_reactions_provider.dart';
 import '../../feed/persistent_fullscreen_provider.dart';
+import '../../diagnostics/privacy_diagnostics.dart';
 import '../video_ui_provider.dart';
 import 'video_seek_bar.dart';
 
@@ -66,6 +67,7 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer> {
   void _skipShortOrUnknownVideo() {
     if (!mounted || !widget.isVisible || _shortSkipped) return;
     _shortSkipped = true;
+    PrivacyDiagnostics.instance.record(DiagnosticEvent.videoSkippedTooShort);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && widget.isVisible) widget.onPlaybackError?.call();
     });
@@ -149,6 +151,7 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer> {
 
   void _handleCompleted() async {
     if (!mounted || !widget.isVisible) return;
+    PrivacyDiagnostics.instance.record(DiagnosticEvent.videoPlaybackCompleted);
 
     // Exit fullscreen if active when video completes
     final state = _videoKey.currentState;
@@ -185,6 +188,7 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer> {
 
     if (_retryCount < settings.playbackRetryLimit) {
       _retryCount++;
+      PrivacyDiagnostics.instance.record(DiagnosticEvent.videoPlaybackRetry);
       AppLogger.log(
           'XFLOW: Video playback error. Retrying ($_retryCount/${settings.playbackRetryLimit})... Error: $error');
 
@@ -196,6 +200,7 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer> {
             .open(Media(widget.tweet.mediaUrls.first), play: widget.isVisible);
       }
     } else {
+      PrivacyDiagnostics.instance.record(DiagnosticEvent.videoPlaybackFailed);
       AppLogger.log('XFLOW: Video playback failed after retry. Skipping item.');
       widget.onPlaybackError?.call();
     }
@@ -283,6 +288,8 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer> {
             // media_kit time to probe the file, otherwise skip it.
             _durationValidationTimer = Timer(const Duration(seconds: 12), () {
               _durationValidationTimer = null;
+              PrivacyDiagnostics.instance.record(
+                  DiagnosticEvent.videoDurationUnknown);
               _skipShortOrUnknownVideo();
             });
           }

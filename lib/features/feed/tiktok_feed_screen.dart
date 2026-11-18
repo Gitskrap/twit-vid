@@ -17,6 +17,7 @@ import '../cast/cast_video_button.dart';
 import '../subscriptions/subscription_list_screen.dart';
 import 'local_video_filter.dart';
 import '../player/video_ui_provider.dart';
+import '../diagnostics/privacy_diagnostics.dart';
 
 class TiktokFeedScreen extends ConsumerStatefulWidget {
   const TiktokFeedScreen({super.key});
@@ -48,6 +49,7 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
     if (!_pageController.hasClients) return;
     final page = _pageController.page?.round() ?? 0;
     if (page != _currentIndex) {
+      PrivacyDiagnostics.instance.record(DiagnosticEvent.videoAdvanced);
       setState(() {
         _currentIndex = page;
       });
