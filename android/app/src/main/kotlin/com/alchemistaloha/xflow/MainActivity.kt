@@ -8,6 +8,7 @@ import android.provider.Settings
 import android.content.pm.PackageManager
 import java.io.File
 import androidx.core.content.FileProvider
+import org.json.JSONObject
 import android.view.KeyEvent
 import com.google.android.gms.cast.framework.CastContext
 import com.google.android.gms.cast.framework.CastSession
@@ -63,6 +64,48 @@ class MainActivity : FlutterFragmentActivity() {
         // No APK, token or GitHub secret is embedded in this native channel.
         // Flutter downloads and verifies a GitHub Release before we show the
         // normal Android package installation confirmation.
+        // Privacy diagnostics are a separate, opt-in export. Do not ever
+        // read AppLogger, X credentials, subscription tables or media cache.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger,
+            "fr.twittervideo.client/diagnostics").setMethodCallHandler { call, result ->
+            val dir = File(cacheDir, "anonymous-diagnostics")
+            val reportFile = File(dir, "twit-vid-anonyme.json")
+            when (call.method) {
+                "shareReport" -> {
+                    try {
+                        val report = call.argument<String>("json") ?: ""
+                        if (report.isEmpty() || report.length > 400_000 ||
+                            JSONObject(report).optString("format") !=
+                                "twit_vid_anonymous_diagnostics_v1") {
+                            result.error("INVALID_REPORT", "Rapport anonyme invalide", null)
+                            return@setMethodCallHandler
+                        }
+                        dir.mkdirs()
+                        reportFile.writeText(report, Charsets.UTF_8)
+                        val uri = FileProvider.getUriForFile(
+                            this, "$packageName.updateprovider", reportFile)
+                        val send = Intent(Intent.ACTION_SEND).apply {
+                            type = "application/json"
+                            putExtra(Intent.EXTRA_STREAM, uri)
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            clipData = android.content.ClipData.newRawUri("Rapport", uri)
+                        }
+                        startActivity(Intent.createChooser(send,
+                            "Partager le diagnostic anonyme"))
+                        result.success(null)
+                    } catch (error: Exception) {
+                        result.error("SHARE_FAILED",
+                            "Le partage du rapport n'a pas pu être lancé", null)
+                    }
+                }
+                "deleteReport" -> {
+                    reportFile.delete()
+                    result.success(null)
+                }
+                else -> result.notImplemented()
+            }
+        }
+
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger,
             "fr.twittervideo.client/updates").setMethodCallHandler { call, result ->
             when (call.method) {
