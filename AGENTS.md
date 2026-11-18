@@ -65,6 +65,14 @@ Never commit `android/key.properties`, Android keystore files, or authentication
 - `.github/workflows/release.yml` is legacy automation, not the primary release procedure. The obsolete one-time v0.16.0 APK publishing workflow was removed to avoid accidentally republishing an old release.
 - A documentation-only change does **not** require a new Android version; the canonical workflow may nevertheless run because it triggers on pushes to `master`.
 
+## Anonymous diagnostic privacy contract
+
+- `lib/features/diagnostics/privacy_diagnostics.dart` is the **only** source for user-shareable diagnostics.
+- The export receives only a closed `DiagnosticEvent` enum and optional **bucketed** result counts. Do not add dynamic strings, hashes, tweet IDs, account identifiers, subscriptions, hashtags, URLs, arbitrary HTTP errors, raw stack traces, or absolute timestamps.
+- Diagnostic recording is user opt-in only, kept in memory until explicit export, with a fixed event cap.
+- **Never serialize `AppLogger.logs`** or `debugPrint` output into an exported diagnostic report. Raw logs may contain private media or account data.
+- Native Android share uses a private `FileProvider` path for a user-reviewed JSON report. Keep the ability to delete it and never auto-send it.
+
 ## Coding constraints
 
 - Use Riverpod 3 APIs that exist in `flutter_riverpod: ^3.3.1`; do not assume `StateProvider` is supported.
