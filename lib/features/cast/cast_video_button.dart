@@ -10,6 +10,7 @@ import '../feed/local_recommendation_profile.dart';
 import '../feed/local_video_reactions_provider.dart';
 import '../feed/hashtag_blacklist_provider.dart';
 import 'cast_autoplay_queue.dart';
+import '../diagnostics/privacy_diagnostics.dart';
 import 'local_video_proxy.dart';
 import 'cast_quality.dart';
 import 'cast_volume_control.dart';
@@ -77,6 +78,7 @@ class ActiveCastTweetNotifier extends Notifier<String?> {
         final hadActivePlayback = state != null;
         state = null;
         if (hadActivePlayback) {
+          PrivacyDiagnostics.instance.record(DiagnosticEvent.castDisconnected);
           _activeDevice = null;
           _stoppedByUser = true;
           _mediaSubscription?.cancel();
@@ -95,6 +97,7 @@ class ActiveCastTweetNotifier extends Notifier<String?> {
     CastQualityMode quality = CastQualityMode.auto,
     bool automatic = false,
   }) async {
+    PrivacyDiagnostics.instance.record(DiagnosticEvent.castPlayStarted);
     if (!automatic) {
       _stoppedByUser = false;
       _castSessionIds.clear();
@@ -128,11 +131,13 @@ class ActiveCastTweetNotifier extends Notifier<String?> {
         _activeQuality = quality;
         _castSessionIds.add(tweet.id);
         _watchPlaybackCompletion();
+        PrivacyDiagnostics.instance.record(DiagnosticEvent.castPlaySucceeded);
         return;
       } catch (error) {
         lastError = error;
       }
     }
+    PrivacyDiagnostics.instance.record(DiagnosticEvent.castPlayFailed);
     throw StateError(
       'Lecture impossible en mode ${quality.label} '
       '(${candidates.length} qualité(s) testée(s)). '
@@ -163,6 +168,7 @@ class ActiveCastTweetNotifier extends Notifier<String?> {
             status.idleReason?.name.toLowerCase() != 'finished') return;
         if (_currentMediaSessionId != null &&
             status.mediaSessionID != _currentMediaSessionId) return;
+        PrivacyDiagnostics.instance.record(DiagnosticEvent.castVideoFinished);
         _advancing = true;
         unawaited(_playNextAutomatically().whenComplete(() {
           _advancing = false;
@@ -171,6 +177,7 @@ class ActiveCastTweetNotifier extends Notifier<String?> {
   }
 
   Future<void> _playNextAutomatically() async {
+    PrivacyDiagnostics.instance.record(DiagnosticEvent.castAutoNextStarted);
     final finishedId = state;
     final device = _activeDevice;
     if (finishedId == null || device == null || _stoppedByUser) return;
@@ -204,7 +211,10 @@ class ActiveCastTweetNotifier extends Notifier<String?> {
         debugPrint('Cast: no new videos could be loaded: $error');
       }
     }
-    if (next == null || !ref.mounted || _stoppedByUser) return;
+    if (next == null || !ref.mounted || _stoppedByUser) {
+      PrivacyDiagnostics.instance.record(DiagnosticEvent.castAutoNextEmpty);
+      return;
+    }
     final reactions = ref.read(localVideoReactionsProvider).value;
     final blocked = ref.read(hashtagBlacklistProvider).value ?? const <String>[];
     var candidate = next;
@@ -218,8 +228,10 @@ class ActiveCastTweetNotifier extends Notifier<String?> {
         try {
           await play(candidate, device, quality: _activeQuality,
               automatic: true);
+          PrivacyDiagnostics.instance.record(DiagnosticEvent.castAutoNextSucceeded);
           return;
         } catch (error) {
+          PrivacyDiagnostics.instance.record(DiagnosticEvent.castAutoNextFailed);
           debugPrint('Cast: next video ${candidate.id} failed: $error');
           _castSessionIds.add(candidate.id);
         }
@@ -344,6 +356,7 @@ class ActiveCastTweetNotifier extends Notifier<String?> {
   }
 
   Future<void> stop() async {
+    PrivacyDiagnostics.instance.record(DiagnosticEvent.castStopped);
     _stoppedByUser = true;
     _mediaSubscription?.cancel();
     _mediaSubscription = null;
@@ -384,6 +397,7 @@ class CastVideoButton extends ConsumerWidget {
   }
 
   Future<void> _openCastPicker(BuildContext context) async {
+    PrivacyDiagnostics.instance.record(DiagnosticEvent.castPickerOpened);
     if (!tweet.isVideo || tweet.mediaUrls.isEmpty) return;
     // The originating video widget may be unmounted while Cast connects.
     // Capture the app-scoped provider container before any await; never
