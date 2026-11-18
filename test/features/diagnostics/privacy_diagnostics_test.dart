@@ -50,7 +50,7 @@ void main() {
       'accountId', 'postId', 'username', 'subscriptions', 'hashtag_text',
       'search_query', 'searchTerm', 'cookie', 'access_token', 'http://',
       'https://', 'sha256', 'tweet_text', 'caption', 'mediaUrls',
-      'absolute_time', '@privateAccount', '#privateInterest',
+      'timestamp_utc', '@privateAccount', '#privateInterest',
     ]) {
       // 'subscriptions_included' is a false privacy declaration, not data.
       if (forbidden == 'subscriptions') continue;
