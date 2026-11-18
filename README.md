@@ -4,8 +4,8 @@
 
 > **Dépôt GitHub :** `Gitskrap/twit-vid`  
 > **Nom sur le téléphone :** **Twitter vidéo**  
-> **Dernière version publiée vérifiée :** [v0.25.0](https://github.com/Gitskrap/twit-vid/releases/tag/v0.25.0)  
-> **Téléchargement Android :** [APK ARM64 signé](https://github.com/Gitskrap/twit-vid/releases/download/v0.25.0/Twitter-video-0.25.0-arm64.apk)
+> **Dernière version publiée vérifiée :** [v0.26.0](https://github.com/Gitskrap/twit-vid/releases/tag/v0.26.0)  
+> **Téléchargement Android :** [APK ARM64 signé](https://github.com/Gitskrap/twit-vid/releases/download/v0.26.0/Twitter-video-0.26.0-arm64.apk)
 
 Ce projet est un **fork indépendant de [XFlow](https://github.com/Alchemist-Aloha/xflow)**. Il n'est ni développé ni approuvé par X Corp.
 
@@ -19,6 +19,7 @@ Ce projet est un **fork indépendant de [XFlow](https://github.com/Alchemist-Alo
 - **Abonnements locaux** : ajouter ou retirer des comptes publics dans l'application sans les suivre sur X ; l'accès aux vidéos dépend toutefois des sources disponibles.
 - **Recherche de vidéos et de hashtags** : tentative par X, source publique de secours, puis résultats déjà présents dans le cache si le réseau ou les services échouent.
 - **Lecteur vertical** : défilement fluide, barre de progression manipulable, son coupé au démarrage, mode paysage et plein écran conservé lors du changement de vidéo.
+- **Mises à jour intégrées** : après déverrouillage, l'application vérifie automatiquement les nouvelles GitHub Releases ; une page dans les paramètres permet aussi la vérification manuelle, le téléchargement avec progression et l'installation confirmée par Android. Les APK sont contrôlés par SHA-256 avant installation.
 - **Google Cast (bêta)** : envoi de la vidéo au téléviseur via un relais Wi-Fi local, contrôle du volume et tentative de lecture automatique de la suivante.
 - **Cache et historique locaux** : mémorisation des vidéos vues pour limiter les répétitions entre les sessions.
 
@@ -31,9 +32,19 @@ Les fonctionnalités dépendant de X ou d'un service public tiers peuvent être 
 3. L'ouvrir sur un téléphone Android ARM64 et autoriser l'installation depuis cette source si Android le demande.
 4. Pour les prochaines mises à jour, installer le nouvel APK **par-dessus l'application existante** : le paquet Android et la signature doivent rester identiques.
 
-**Version actuelle :** [Twitter-video-0.25.0-arm64.apk](https://github.com/Gitskrap/twit-vid/releases/download/v0.25.0/Twitter-video-0.25.0-arm64.apk).
+**Version actuelle :** [Twitter-video-0.26.0-arm64.apk](https://github.com/Gitskrap/twit-vid/releases/download/v0.26.0/Twitter-video-0.26.0-arm64.apk).
 
 L'accès à un compte X est facultatif pour les fonctions locales, mais certaines vidéos ou certaines recherches peuvent nécessiter une session X valide.
+
+## Mises à jour dans l'application
+
+À partir de la **0.26.0**, Twit Vid vérifie les nouvelles versions lors de son démarrage (après le déverrouillage biométrique). Si une mise à jour est disponible, une fenêtre propose **Plus tard** ou **Mettre à jour**. Une vérification manuelle reste accessible dans **Paramètres → Mises à jour de l’application**.
+
+Le téléchargement utilise les fichiers publics de [GitHub Releases](https://github.com/Gitskrap/twit-vid/releases/latest). Un fichier `.sha256` est fourni avec chaque nouvel APK ; l'application vérifie son intégrité avant de demander l'installation à Android. Il peut être nécessaire d'autoriser l'installation depuis cette application lors de la première mise à jour.
+
+**Aucun token GitHub privé n'est stocké dans l'APK.** Le dépôt étant public, le contrôle des versions ne nécessite pas de secret personnel. Les secrets de **signature Android** (`ANDROID_KEYSTORE_BASE64` et `ANDROID_SIGNING_PASSWORD`) restent sur GitHub Actions et doivent être conservés afin de permettre une installation par-dessus la version précédente.
+
+L'installation n'est pas silencieuse : **Android demande une confirmation**. Les données de l'application sont conservées si l'identifiant Android et la clé de signature restent identiques.
 
 ## Développement
 
