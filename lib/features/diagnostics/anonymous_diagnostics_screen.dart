@@ -36,6 +36,19 @@ class _AnonymousDiagnosticsScreenState
     super.dispose();
   }
 
+  void _start() {
+    _diagnostics.start();
+    // Old exported report must not be kept once a fresh session begins.
+    _shareChannel.invokeMethod<void>('deleteReport').catchError(
+        (Object _) {});
+  }
+
+  void _erase() {
+    _diagnostics.erase();
+    _shareChannel.invokeMethod<void>('deleteReport').catchError(
+        (Object _) {});
+  }
+
   Future<void> _share() async {
     final report = _diagnostics.finishedReport;
     if (report == null || _sharing) return;
@@ -121,7 +134,7 @@ class _AnonymousDiagnosticsScreenState
             ),
           ] else if (report == null) ...[
             FilledButton.icon(
-              onPressed: _diagnostics.start,
+              onPressed: _start,
               icon: const Icon(Icons.fiber_manual_record),
               label: const Text('Démarrer le diagnostic'),
             ),
@@ -139,7 +152,7 @@ class _AnonymousDiagnosticsScreenState
             ),
             const SizedBox(height: 10),
             OutlinedButton.icon(
-              onPressed: _diagnostics.start,
+              onPressed: _start,
               icon: const Icon(Icons.restart_alt),
               label: const Text('Recommencer un diagnostic'),
             ),
@@ -169,7 +182,7 @@ class _AnonymousDiagnosticsScreenState
           ],
           const SizedBox(height: 24),
           OutlinedButton.icon(
-            onPressed: _diagnostics.erase,
+            onPressed: _erase,
             icon: const Icon(Icons.delete_forever_outlined),
             label: const Text('Effacer les données du diagnostic'),
           ),
