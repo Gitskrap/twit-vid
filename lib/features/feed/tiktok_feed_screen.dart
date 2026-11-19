@@ -32,11 +32,7 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
   int _currentIndex = 0;
   bool _poolUpdateScheduled = false;
   String? _lastMarkedVideoId;
-
-  @override
-  void initState() {
-    super.initState();
-  }
+  int _lastAutofetchedLength = -1;
 
   @override
   void dispose() {
@@ -126,6 +122,15 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
           // whole feed. Never block rendering or playback.
           unawaited(ref.read(feedNotifierProvider.notifier)
               .refreshVisibleEngagement(tweets[_currentIndex].id));
+          final feedState = ref.read(feedNotifierProvider).value;
+          final threshold = ref.read(settingsProvider).lazyLoadThreshold;
+          if (feedState != null &&
+              !feedState.isRefreshing && !feedState.isLoadingMore &&
+              _currentIndex >= tweets.length - threshold &&
+              _lastAutofetchedLength != tweets.length) {
+            _lastAutofetchedLength = tweets.length;
+            unawaited(ref.read(feedNotifierProvider.notifier).fetchMore());
+          }
         }
       }
     });
@@ -398,7 +403,16 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
               style: const TextStyle(color: Colors.white70),
             ),
             const SizedBox(height: 16),
-            FilledButton.tonal(
+            FilledButton.tonalIcon(
+              onPressed: () {
+                _lastAutofetchedLength = -1;
+                unawaited(ref.read(feedNotifierProvider.notifier).refresh());
+              },
+              icon: const Icon(Icons.refresh),
+              label: const Text('Chercher de nouvelles vidéos'),
+            ),
+            const SizedBox(height: 10),
+            TextButton(
               onPressed: () => ref.read(navigationProvider.notifier)
                   .setTab(MainTab.subscriptions),
               child: const Text('Gérer mes abonnements'),
