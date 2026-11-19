@@ -44,10 +44,9 @@ List<Tweet> appendFreshVideos(
 }
 
 String _stableMediaPath(String url) {
-  final uri = Uri.tryParse(url);
-  if (uri == null) return url;
-  // Video URLs may carry expiring query params. No URLs reach diagnostics.
-  return uri.replace(query: null, fragment: null).toString();
+  // Uri.replace(query: null) preserves the original query. Strip the
+  // expiring signature explicitly so the same media is not shown twice.
+  return url.split(RegExp(r'[?#]')).first;
 }
 
 /// Only used for the on-device fallback when there are no local creator
