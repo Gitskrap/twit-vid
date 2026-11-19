@@ -57,7 +57,7 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
           final id = tweets[page].id;
           if (_lastMarkedVideoId != id) {
             _lastMarkedVideoId = id;
-            unawaited(Repository.markMediaAsPlayed(id));
+            unawaited(Repository.markMediaAsPlayed(id, video: tweets[page]));
           }
         }
 
@@ -116,7 +116,8 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
           final visibleId = tweets[_currentIndex].id;
           if (_lastMarkedVideoId != visibleId) {
             _lastMarkedVideoId = visibleId;
-            unawaited(Repository.markMediaAsPlayed(visibleId));
+            unawaited(Repository.markMediaAsPlayed(visibleId,
+                video: tweets[_currentIndex]));
           }
           // One throttled detail request for the visible video, not for the
           // whole feed. Never block rendering or playback.
