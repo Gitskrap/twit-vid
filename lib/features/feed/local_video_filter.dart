@@ -9,6 +9,11 @@ Set<String> localVideoHandles(Iterable<Subscription> subscriptions) =>
         .where((handle) => handle.isNotEmpty)
         .toSet();
 
+/// Stable even while the subscriptions screen refreshes its spinner,
+/// sort order, search query or per-account viewing counters.
+String localSubscriptionSignature(Iterable<Subscription> subscriptions) =>
+    (localVideoHandles(subscriptions).toList()..sort()).join('|');
+
 List<Tweet> onlyLocalSubscriptionVideos(
   Iterable<Tweet> tweets,
   Set<String> savedHandles,
