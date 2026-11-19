@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../player/player_pool_provider.dart';
 import 'persistent_fullscreen_provider.dart';
 import 'feed_provider.dart';
+import 'fresh_video_queue.dart';
 import '../player/widgets/media_container.dart';
 import '../../core/models/tweet.dart';
 import '../../core/database/repository.dart';
@@ -31,23 +32,15 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
   int _currentIndex = 0;
   bool _poolUpdateScheduled = false;
   String? _lastMarkedVideoId;
-
-  @override
-  void initState() {
-    super.initState();
-    _pageController.addListener(_handleScroll);
-  }
+  int _lastAutofetchedLength = -1;
 
   @override
   void dispose() {
-    _pageController.removeListener(_handleScroll);
     _pageController.dispose();
     super.dispose();
   }
 
-  void _handleScroll() {
-    if (!_pageController.hasClients) return;
-    final page = _pageController.page?.round() ?? 0;
+  void _onPageChanged(int page) {
     if (page != _currentIndex) {
       PrivacyDiagnostics.instance.record(DiagnosticEvent.videoAdvanced);
       setState(() {
@@ -64,14 +57,15 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
           final id = tweets[page].id;
           if (_lastMarkedVideoId != id) {
             _lastMarkedVideoId = id;
-            unawaited(Repository.markMediaAsPlayed(id));
+            unawaited(Repository.markMediaAsPlayed(id, video: tweets[page]));
           }
         }
 
         final settings = ref.read(settingsProvider);
         if (page >= tweets.length - settings.lazyLoadThreshold &&
-            !feedAsync.value!.isRefreshing) {
-          ref.read(feedNotifierProvider.notifier).fetchMore();
+            !feedAsync.value!.isRefreshing &&
+            !feedAsync.value!.isLoadingMore) {
+          unawaited(ref.read(feedNotifierProvider.notifier).fetchMore());
         }
       }
     }
@@ -122,12 +116,22 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
           final visibleId = tweets[_currentIndex].id;
           if (_lastMarkedVideoId != visibleId) {
             _lastMarkedVideoId = visibleId;
-            unawaited(Repository.markMediaAsPlayed(visibleId));
+            unawaited(Repository.markMediaAsPlayed(visibleId,
+                video: tweets[_currentIndex]));
           }
           // One throttled detail request for the visible video, not for the
           // whole feed. Never block rendering or playback.
           unawaited(ref.read(feedNotifierProvider.notifier)
               .refreshVisibleEngagement(tweets[_currentIndex].id));
+          final feedState = ref.read(feedNotifierProvider).value;
+          final threshold = ref.read(settingsProvider).lazyLoadThreshold;
+          if (feedState != null &&
+              !feedState.isRefreshing && !feedState.isLoadingMore &&
+              _currentIndex >= tweets.length - threshold &&
+              _lastAutofetchedLength != tweets.length) {
+            _lastAutofetchedLength = tweets.length;
+            unawaited(ref.read(feedNotifierProvider.notifier).fetchMore());
+          }
         }
       }
     });
@@ -277,14 +281,14 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
       data: (state) {
         final tweets = state.tweets;
         if (tweets.isEmpty) {
-          if (state.isRefreshing) {
+          if (state.isRefreshing || state.isLoadingMore) {
             return const Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   CircularProgressIndicator(),
                   SizedBox(height: 16),
-                  Text('Fetching latest media...',
+                  Text('Recherche de nouvelles vidéos…',
                       style: TextStyle(color: Colors.white70)),
                 ],
               ),
@@ -298,6 +302,7 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
             PageView.builder(
               controller: _pageController,
               scrollDirection: Axis.vertical,
+              onPageChanged: _onPageChanged,
               itemCount: tweets.length,
               itemBuilder: (context, index) {
                 final settings = ref.read(settingsProvider);
@@ -308,25 +313,39 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
                   isVisible: index == _currentIndex && isScreenActive,
                   onDislike: () {
                     if (!mounted || index != _currentIndex) return;
-                    // Keep the same PageView index; it now holds the next
-                    // video. No provider rebuild or loading screen.
+                    final rejectedId = tweets[index].id;
+                    PrivacyDiagnostics.instance.record(
+                        DiagnosticEvent.dislikeAdvanceRequested);
                     ref.read(feedNotifierProvider.notifier)
-                        .hideDislikedVideo(tweets[index].id);
-                    final remaining = ref.read(feedNotifierProvider)
-                        .value?.tweets.length ?? 0;
-                    if (remaining == 0) {
+                        .hideDislikedVideo(rejectedId);
+                    final after = ref.read(feedNotifierProvider)
+                        .value?.tweets ?? const <Tweet>[];
+                    if (after.isEmpty) {
                       setState(() => _currentIndex = 0);
-                    } else if (index >= remaining) {
+                    } else if (index >= after.length) {
+                      // Last item removed: clamp to a valid page.
                       WidgetsBinding.instance.addPostFrameCallback((_) {
                         if (!mounted || !_pageController.hasClients) return;
-                        _pageController.jumpToPage(remaining - 1);
-                        setState(() => _currentIndex = remaining - 1);
+                        _pageController.jumpToPage(after.length - 1);
+                        setState(() => _currentIndex = after.length - 1);
+                        _managePool();
                       });
-                    } else if (remaining > 0) {
+                    } else {
+                      // Same page index now holds a different video.
                       setState(() {});
-                      _managePool();
+                      _schedulePoolWarmup();
                     }
-                    if (remaining <= 3) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (!mounted) return;
+                      final current = ref.read(feedNotifierProvider)
+                          .value?.tweets ?? const <Tweet>[];
+                      final advanced = dislikeAdvancedToAnotherVideo(
+                          tweets, current, rejectedId, index);
+                      PrivacyDiagnostics.instance.record(advanced
+                          ? DiagnosticEvent.dislikeAdvanceConfirmed
+                          : DiagnosticEvent.dislikeAdvanceNoNext);
+                    });
+                    if (after.length <= 3) {
                       unawaited(ref.read(feedNotifierProvider.notifier)
                           .fetchMore());
                     }
@@ -385,7 +404,16 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
               style: const TextStyle(color: Colors.white70),
             ),
             const SizedBox(height: 16),
-            FilledButton.tonal(
+            FilledButton.tonalIcon(
+              onPressed: () {
+                _lastAutofetchedLength = -1;
+                unawaited(ref.read(feedNotifierProvider.notifier).refresh());
+              },
+              icon: const Icon(Icons.refresh),
+              label: const Text('Chercher de nouvelles vidéos'),
+            ),
+            const SizedBox(height: 10),
+            TextButton(
               onPressed: () => ref.read(navigationProvider.notifier)
                   .setTab(MainTab.subscriptions),
               child: const Text('Gérer mes abonnements'),

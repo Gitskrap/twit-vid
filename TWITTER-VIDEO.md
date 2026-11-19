@@ -6,11 +6,22 @@
 
 **Dépôt :** [Gitskrap/twit-vid](https://github.com/Gitskrap/twit-vid)  
 **Nom Android :** « Twitter vidéo » (`fr.twittervideo.client`)  
-**Dernière version vérifiée :** [v0.27.0](https://github.com/Gitskrap/twit-vid/releases/tag/v0.27.0)  
-**APK signé :** [Télécharger v0.27.0 ARM64](https://github.com/Gitskrap/twit-vid/releases/download/v0.27.0/Twitter-video-0.27.0-arm64.apk)
+**Dernière version vérifiée :** [v0.28.0](https://github.com/Gitskrap/twit-vid/releases/tag/v0.28.0)  
+**APK signé :** [Télécharger v0.28.0 ARM64](https://github.com/Gitskrap/twit-vid/releases/download/v0.28.0/Twitter-video-0.28.0-arm64.apk)
 
 Fork libre de [XFlow](https://github.com/Alchemist-Aloha/xflow), sous licence MIT.
 Non affilié à X Corp.
+
+## Versions récentes
+
+### 0.28.0 — fiabilité et renouvellement du fil principal
+- Le rechargement des abonnements ne réinitialise plus le fil tant que la liste de comptes n'a pas réellement changé.
+- Les vidéos de découverte sont conservées localement **avant** affichage ; leur lecture est mémorisée pour éviter qu'elles reviennent au prochain démarrage.
+- Les contenus déjà affichés restent à leur place lorsque de nouvelles vidéos arrivent ; seules les nouveautés sont ajoutées à la fin.
+- Requêtes de recherche contrôlées, pause sur les sujets épuisés, suppression des doublons par vidéo, média ou URL normalisée.
+- Le fil récupère aussi des vidéos déjà mises en cache et correspondant aux préférences locales lorsqu'aucun compte n'est suivi.
+- Chargement progressif pour réduire les écrans d'attente ; nouveau bouton pour relancer la recherche lorsqu'aucune vidéo n'est disponible.
+- Diagnostic anonyme enrichi : succès/absence du passage à la vidéo suivante après un 👎, doublons évités, absence de nouveautés, requêtes regroupées.
 
 ## Versions récentes
 

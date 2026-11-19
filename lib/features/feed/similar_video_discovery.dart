@@ -79,5 +79,10 @@ List<Tweet> mixRelatedVideos(
       output.add(suggested[index++].copyWith(source: 'Découverte'));
     }
   }
+  // With only one or two followed videos, the old logic silently dropped
+  // EVERY recommendation. Keep one relevant discovery in sparse batches.
+  if (index == 0 && suggested.isNotEmpty) {
+    output.add(suggested.first.copyWith(source: 'Découverte'));
+  }
   return output;
 }

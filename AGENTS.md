@@ -65,6 +65,15 @@ Never commit `android/key.properties`, Android keystore files, or authentication
 - `.github/workflows/release.yml` is legacy automation, not the primary release procedure. The obsolete one-time v0.16.0 APK publishing workflow was removed to avoid accidentally republishing an old release.
 - A documentation-only change does **not** require a new Android version; the canonical workflow may nevertheless run because it triggers on pushes to `master`.
 
+## Home video feed stability contract
+
+- Keep the active `PageView` prefix stable during background refreshes and load-more operations; append vetted unseen videos instead of inserting/reordering currently displayed pages.
+- Only a real change in normalized local creator handles should invalidate the home feed. The subscriptions tab refreshes counters, sort order, search text, and loading flags often.
+- Persist discovered/recommended videos before presenting them; mark the viewed video record on first display so it is filtered on next start.
+- Enforce the strictly greater-than-15-seconds rule, local dislikes and hashtag blacklist on every home feed ingress.
+- Deduplicate by tweet ID, media key and stable URL (without ephemeral query) where possible. Use short cooldowns when a cursor or topic is exhausted rather than repeatedly requesting page one.
+- Keep diagnostics strictly content-blind: only fixed enum events, relative time and bucketed counts. Never export video identifiers or hashes.
+
 ## Anonymous diagnostic privacy contract
 
 - `lib/features/diagnostics/privacy_diagnostics.dart` is the **only** source for user-shareable diagnostics.
