@@ -4,13 +4,14 @@
 
 > **Dépôt GitHub :** `Gitskrap/twit-vid`  
 > **Nom sur le téléphone :** **Twitter vidéo**  
-> **Dernière version publiée vérifiée :** [v0.27.0](https://github.com/Gitskrap/twit-vid/releases/tag/v0.27.0)  
-> **Téléchargement Android :** [APK ARM64 signé](https://github.com/Gitskrap/twit-vid/releases/download/v0.27.0/Twitter-video-0.27.0-arm64.apk)
+> **Dernière version publiée vérifiée :** [v0.28.0](https://github.com/Gitskrap/twit-vid/releases/tag/v0.28.0)  
+> **Téléchargement Android :** [APK ARM64 signé](https://github.com/Gitskrap/twit-vid/releases/download/v0.28.0/Twitter-video-0.28.0-arm64.apk)
 
 Ce projet est un **fork indépendant de [XFlow](https://github.com/Alchemist-Aloha/xflow)**. Il n'est ni développé ni approuvé par X Corp.
 
 ## Fonctionnalités
 
+- **Fil plus stable (0.28.0)** : le lecteur conserve les vidéos visibles pendant les rafraîchissements, évite de reproposer les découvertes déjà regardées, déduplique les médias et recherche de nouveaux résultats sans répéter inutilement les mêmes pages.
 - **Fil « Vidéos » personnalisé** : recommandations issues des **J’aime enregistrés dans l’application**, des vidéos effectivement regardées, des comptes suivis localement et des hashtags favoris.
 - **Vidéos de plus de 15 secondes uniquement** dans le fil principal ; les durées inconnues sont vérifiées par le lecteur lorsqu'il le peut.
 - **J’aime et Je n’aime pas privés à l’application** : aucune action de like/dislike envoyée au compte X. Un 👎 masque la vidéo et réduit les propositions similaires.
@@ -26,6 +27,10 @@ Ce projet est un **fork indépendant de [XFlow](https://github.com/Alchemist-Alo
 
 Les fonctionnalités dépendant de X ou d'un service public tiers peuvent être limitées, interrompues ou retourner des résultats incomplets. L'enchaînement Cast reste à valider selon les téléviseurs et les formats vidéo.
 
+## Diagnostic de fiabilité du fil (0.28.0)
+
+Les rapports anonymes disposent de nouveaux événements techniques : `dislikeAdvanceRequested`, `dislikeAdvanceConfirmed`, `dislikeAdvanceNoNext`, `feedRepeatedCandidatesFiltered`, `feedNoFreshCandidates`, `feedRefreshCoalesced` et `feedLoadCooldown`. Ils enregistrent des catégories, quantités regroupées et temps relatifs uniquement — **jamais** d'identifiants de vidéos, de comptes, de hashtags ou de recherche.
+
 ## Installer sur Android
 
 1. Ouvrir la [page des versions](https://github.com/Gitskrap/twit-vid/releases/latest).
@@ -33,7 +38,7 @@ Les fonctionnalités dépendant de X ou d'un service public tiers peuvent être 
 3. L'ouvrir sur un téléphone Android ARM64 et autoriser l'installation depuis cette source si Android le demande.
 4. Pour les prochaines mises à jour, installer le nouvel APK **par-dessus l'application existante** : le paquet Android et la signature doivent rester identiques.
 
-**Version actuelle :** [Twitter-video-0.27.0-arm64.apk](https://github.com/Gitskrap/twit-vid/releases/download/v0.27.0/Twitter-video-0.27.0-arm64.apk).
+**Version actuelle :** [Twitter-video-0.28.0-arm64.apk](https://github.com/Gitskrap/twit-vid/releases/download/v0.28.0/Twitter-video-0.28.0-arm64.apk).
 
 L'accès à un compte X est facultatif pour les fonctions locales, mais certaines vidéos ou certaines recherches peuvent nécessiter une session X valide.
 
