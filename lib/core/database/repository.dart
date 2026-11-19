@@ -390,7 +390,7 @@ class Repository {
     final db = await database;
 
     // Use a subquery to exclude any tweets whose media_key has been played elsewhere
-    String whereClause = 'played_count = 0';
+    String whereClause = 'played_count = 0 AND (duration_watched IS NULL OR duration_watched < 7)';
     if (allowedHandles != null) {
       whereClause += ' AND (duration_ms IS NULL OR duration_ms > 15000)';
     }
@@ -782,7 +782,10 @@ class Repository {
         where: 'id = ?', whereArgs: [id]);
   }
 
-  static Future<void> markMediaAsPlayed(String id) async {
+  static Future<void> markMediaAsPlayed(String id, {Tweet? video}) async {
+    // Even recommendations that were not in the cache must persist their
+    // first view; otherwise the app rediscovers them on next launch.
+    if (video != null) await insertCachedMedia([video]);
     final db = await database;
     await db.rawUpdate('''
       UPDATE $tableCachedMedia 
