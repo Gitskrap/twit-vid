@@ -45,12 +45,15 @@ class FeedState {
   FeedState copyWith({
     List<Tweet>? tweets,
     String? cursorBottom,
+    bool replaceCursor = false,
     bool? isLoadingMore,
     bool? isRefreshing,
   }) {
     return FeedState(
       tweets: tweets ?? this.tweets,
-      cursorBottom: cursorBottom ?? this.cursorBottom,
+      // null from an exhausted API must clear the old pagination cursor.
+      cursorBottom: replaceCursor ? cursorBottom
+          : (cursorBottom ?? this.cursorBottom),
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       isRefreshing: isRefreshing ?? this.isRefreshing,
     );
@@ -640,6 +643,7 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
         state = AsyncData(latest.copyWith(
           tweets: mixed,
           cursorBottom: freshResponse.cursorBottom,
+          replaceCursor: true,
           isRefreshing: false,
         ));
         final addedCount = mixed.length - base.length;
@@ -940,6 +944,7 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
       state = AsyncData(latest.copyWith(
         tweets: combined,
         cursorBottom: currentCursor,
+        replaceCursor: true,
         isLoadingMore: false,
       ));
       final addedCount = combined.length - currentAllowed.length;
