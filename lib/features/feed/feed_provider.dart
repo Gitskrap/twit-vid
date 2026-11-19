@@ -383,9 +383,7 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
     // Ignore subscriptions loading flags, search, sort and view counters.
     // Only a change in the normalized local handles rebuilds the feed.
     ref.watch(subscriptionListProvider.select((current) =>
-        (current.allSubscriptions
-          .map((sub) => sub.screenName.replaceFirst('@', '').toLowerCase())
-          .toList()..sort()).join('|')));
+        localSubscriptionSignature(current.allSubscriptions)));
     final subscriptions = ref.read(subscriptionListProvider);
     ref.watch(accountProvider);
     final allowedHandles = localVideoHandles(subscriptions.allSubscriptions);
