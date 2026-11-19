@@ -29,7 +29,6 @@ void main() {
 
     final newCandidates = await Repository.getCachedMediaCandidates(
       10, avoidWatchedContent: true,
-      filters: const {MediaFilter.video},
       allowedHandles: null,
     );
     expect(newCandidates.map((v) => v.id), isNot(contains(first.id)));
@@ -46,7 +45,6 @@ void main() {
     await Repository.recordMeaningfulVideoWatch(viewed);
     final candidates = await Repository.getCachedMediaCandidates(
       10, avoidWatchedContent: true,
-      filters: const {MediaFilter.video},
       allowedHandles: null,
     );
     expect(candidates.map((v) => v.id), isNot(contains(viewed.id)));
