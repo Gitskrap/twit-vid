@@ -715,11 +715,11 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
     try {
       final previouslyViewed = await Repository.getViewedVideoIds();
       if (!ref.mounted) return;
-      // Request genuinely new recommendations first, before long and often
-      // exhausted subscription/API retry loops. This makes scroll-to-next
-      // responsive and prevents cache-only recycling.
+      // Even one or two fresh recommendations are worth keeping if later
+      // subscription requests fail; don't throw them away while retrying X.
+      var initialSuggestions = <Tweet>[];
       if (settings.suggestSimilarVideos) {
-        final initialSuggestions = await _fetchRelatedVideos(
+        initialSuggestions = await _fetchRelatedVideos(
           onlyLocalSubscriptionVideos(currentState.tweets, allowedHandles),
           allowedHandles,
           ref.read(twitterClientProvider),
@@ -901,7 +901,13 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
       final unseenRelated = related.where((video) =>
           !newIds.contains(video.id) &&
           !previouslyViewed.contains(video.id)).toList();
-      final mixedNew = mixRelatedVideos(finalNewTweets, unseenRelated);
+      final earlyIds = <String>{...newIds};
+      final earlyFresh = initialSuggestions.where((video) =>
+          !earlyIds.contains(video.id) &&
+          !previouslyViewed.contains(video.id) &&
+          earlyIds.add(video.id)).toList();
+      final mixedNew = mixRelatedVideos(finalNewTweets,
+          [...earlyFresh, ...unseenRelated]);
       // A dislike may have removed an item during an awaited API call.
       // Build on the LATEST state; never re-insert the rejected video.
       final latest = state.value ?? currentState;
