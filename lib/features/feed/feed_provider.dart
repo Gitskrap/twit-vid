@@ -627,6 +627,12 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
             ? filterByFeedback(latest.tweets, latestReactions,
                 blockedHashtags: blockedHashtags)
             : merged;
+        final filteredCount = allowedTail.length - (merged.length - base.length);
+        if (filteredCount > 0) {
+          PrivacyDiagnostics.instance.record(
+              DiagnosticEvent.feedRepeatedCandidatesFiltered,
+              resultCount: filteredCount);
+        }
         state = AsyncData(latest.copyWith(
           tweets: mixed,
           cursorBottom: freshResponse.cursorBottom,
@@ -927,6 +933,12 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
         isLoadingMore: false,
       ));
       final addedCount = combined.length - currentAllowed.length;
+      final filteredCount = freshAllowed.length - addedCount;
+      if (filteredCount > 0) {
+        PrivacyDiagnostics.instance.record(
+            DiagnosticEvent.feedRepeatedCandidatesFiltered,
+            resultCount: filteredCount);
+      }
       _reportLoadResult(addedCount);
       debugPrint(
           'XFLOW: fetchMore complete. Added ${finalNewTweets.length} tweets. Total: ${combined.length}');
