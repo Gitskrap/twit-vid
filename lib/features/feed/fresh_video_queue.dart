@@ -64,7 +64,8 @@ List<Tweet> cachedVideosMatchingTopics(
   if (topics.isEmpty) return const <Tweet>[];
 
   return candidates.where((video) {
-    if (!video.isVideo || video.mediaUrls.isEmpty) return false;
+    if (!video.isVideo || video.mediaUrls.isEmpty ||
+        (video.durationMs != null && video.durationMs! <= 15000)) return false;
     final matches = captionHashtags(video.text);
     matches.addAll(captionKeywords(video.text));
     return matches.intersection(topics).isNotEmpty;
