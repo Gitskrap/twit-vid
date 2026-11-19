@@ -397,7 +397,7 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
       final localTagged = await _getLocalCandidates(
           settings, allowedHandles, reactions, blockedHashtags);
       AppLogger.log(
-          'XFLOW: Cold start: Retrieved ${localPool.length} local candidates');
+          'XFLOW: Cold start: Retrieved ${localTagged.length} local candidates');
 
       // EARLY MEDIA WARMUP
       if (localTagged.isNotEmpty) {
