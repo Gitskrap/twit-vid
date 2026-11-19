@@ -471,6 +471,12 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
       return;
     }
     _refreshInFlight = true;
+    final visible = state.value;
+    if (visible != null && !visible.isRefreshing) {
+      // Keep the queue visible and flag its background refresh so that
+      // prefetch doesn't race with the currently running API requests.
+      state = AsyncData(visible.copyWith(isRefreshing: true));
+    }
     PrivacyDiagnostics.instance.record(DiagnosticEvent.feedRefreshStarted);
     try {
       await _performBackgroundRefresh(resetHead: resetHead);
