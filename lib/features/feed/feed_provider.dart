@@ -15,6 +15,7 @@ import '../subscriptions/subscription_list_screen.dart';
 import 'local_video_filter.dart';
 import 'similar_video_discovery.dart';
 import 'local_recommendation_profile.dart';
+import 'fresh_video_queue.dart';
 import 'local_video_reactions_provider.dart';
 import 'hashtag_provider.dart';
 import 'hashtag_blacklist_provider.dart';
@@ -62,6 +63,9 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
   final _discoveryFromPublic = <String, bool>{};
   final _discoverySeen = <String>{};
   int _topicRotation = 0;
+  final _topicRetryAfter = <String, DateTime>{};
+  bool _refreshInFlight = false;
+  DateTime? _loadMoreRetryAfter;
 
   /// Read-only fallback when X does not return videos for followed accounts.
   /// FxEmbed never receives the user's X cookies or tokens.
@@ -134,6 +138,8 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
     _topicRotation++;
     for (final topic in rotated) {
       if (!ref.mounted) return const [];
+      final retryAfter = _topicRetryAfter[topic];
+      if (retryAfter != null && DateTime.now().isBefore(retryAfter)) continue;
       var usePublic = _discoveryFromPublic[topic] ?? !authed;
       var cursor = _discoveryCursorByTopic[topic];
       TweetResponse response = TweetResponse(tweets: []);
@@ -170,8 +176,14 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
       final next = response.cursorBottom;
       // A known exhausted cursor must not cause the same page to be
       // fetched repeatedly in one feed session.
-      _discoveryCursorByTopic[topic] =
-          next != null && next.isNotEmpty && next != cursor ? next : null;
+      final hasNext = next != null && next.isNotEmpty && next != cursor;
+      _discoveryCursorByTopic[topic] = hasNext ? next : null;
+      if (hasNext) {
+        _topicRetryAfter.remove(topic);
+      } else {
+        _topicRetryAfter[topic] =
+            DateTime.now().add(const Duration(minutes: 10));
+      }
       for (final video in response.tweets) {
         final author = video.userHandle.replaceFirst('@', '').toLowerCase();
         if (!video.isVideo || video.mediaUrls.isEmpty ||
@@ -187,8 +199,17 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
       if (accepted.length >= 15) break;
     }
     _discoverySeen.addAll(accepted.keys);
-    // The next call searches new pages; do not repeat these candidates.
-    return accepted.values.take(15).toList();
+    final chosen = accepted.values.take(15).toList();
+    // Persist BEFORE exposing results. Otherwise markMediaAsPlayed updates
+    // zero rows and recommended clips repeat on the next app launch.
+    if (chosen.isNotEmpty) {
+      try {
+        await Repository.insertCachedMedia(chosen);
+      } catch (error) {
+        AppLogger.log('Could not persist discovered media: $error');
+      }
+    }
+    return chosen;
   }
 
   // A bounded number of detailed X requests refreshes visible counters
@@ -349,23 +370,24 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
   @override
   FutureOr<FeedState> build() async {
     final settings = ref.watch(settingsProvider);
+    if (!settings.isInitialized) {
+      return FeedState(tweets: [], isRefreshing: true);
+    }
     // Do not rebuild the entire asynchronous feed when tapping like/dislike:
     // it previously displayed a loading spinner and interrupted playback.
     final reactions = ref.read(localVideoReactionsProvider).value ??
         const <String, LocalVideoReaction>{};
     final blockedHashtags = ref.watch(hashtagBlacklistProvider).value
         ?.toSet() ?? const <String>{};
-    // Rebuild recommendations whenever a user follows/unfollows a hashtag.
-    // HashtagMediaNotifier does not watch this feed, so there is no provider
-    // dependency cycle at runtime.
     ref.watch(hashtagListProvider);
-    // The local list, not X's follow list, is the sole source of creators.
-    final subscriptions = ref.watch(subscriptionListProvider);
-    // Rebuild after login, switching accounts, or logout.
+    // Ignore subscriptions loading flags, search, sort and view counters.
+    // Only a change in the normalized local handles rebuilds the feed.
+    ref.watch(subscriptionListProvider.select((current) =>
+        (current.allSubscriptions
+          .map((sub) => sub.screenName.replaceFirst('@', '').toLowerCase())
+          .toList()..sort()).join('|')));
+    final subscriptions = ref.read(subscriptionListProvider);
     ref.watch(accountProvider);
-    if (subscriptions.isLoading) {
-      return FeedState(tweets: [], isRefreshing: true);
-    }
     final allowedHandles = localVideoHandles(subscriptions.allSubscriptions);
     // A user with likes, hashtags or watched videos can discover videos even
     // before following any creators. Empty subscription sets skip API sync.
@@ -374,16 +396,8 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
 
     try {
       // Stage 1: Immediate local candidate retrieval
-      final localPool = await Repository.getCachedMediaCandidates(
-        settings.loadBatchSize * settings.dbCandidateMultiplier,
-        avoidWatchedContent: true,
-        filters: settings.filters,
-        allowedHandles: allowedHandles,
-      );
-      final localTagged = filterByFeedback(
-        onlyLocalSubscriptionVideos(localPool, allowedHandles), reactions,
-        blockedHashtags: blockedHashtags,
-      ).map((t) => t.copyWith(source: 'Cache')).toList();
+      final localTagged = await _getLocalCandidates(
+          settings, allowedHandles, reactions, blockedHashtags);
       AppLogger.log(
           'XFLOW: Cold start: Retrieved ${localPool.length} local candidates');
 
@@ -399,9 +413,7 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
       }
 
       // TRIGGER BACKGROUND SYNC
-      if (settings.isInitialized) {
-        Future.delayed(Duration.zero, () => _refreshInBackground());
-      }
+      Future<void>.delayed(Duration.zero, _refreshInBackground);
 
       PrivacyDiagnostics.instance.record(
           DiagnosticEvent.feedInitialLoad, resultCount: localTagged.length);
@@ -416,17 +428,70 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
     }
   }
 
+  /// Personal cache fallback when no creator is locally followed.
+  Future<List<Tweet>> _getLocalCandidates(
+    SettingsState settings,
+    Set<String> allowedHandles,
+    Map<String, LocalVideoReaction> reactions,
+    Set<String> blockedHashtags,
+  ) async {
+    final pool = await Repository.getCachedMediaCandidates(
+      settings.loadBatchSize * settings.dbCandidateMultiplier,
+      avoidWatchedContent: true,
+      filters: const {MediaFilter.video},
+      allowedHandles: allowedHandles.isEmpty ? null : allowedHandles,
+    );
+    Iterable<Tweet> selected;
+    if (allowedHandles.isEmpty) {
+      final topics = personalizedVideoTopics(
+        const <Tweet>[], reactions, limit: 12,
+        followedHashtags:
+            ref.read(hashtagListProvider).value ?? const <String>[],
+        watchedVideos: await Repository.getMeaningfullyWatchedVideos(),
+        blockedHashtags: blockedHashtags,
+      );
+      selected = cachedVideosMatchingTopics(pool, topics);
+    } else {
+      selected = onlyLocalSubscriptionVideos(pool, allowedHandles);
+    }
+    return filterByFeedback(selected, reactions,
+        blockedHashtags: blockedHashtags)
+        .map((video) => video.copyWith(source: 'Cache')).toList();
+  }
+
   Future<void> refresh() async {
     final currentState = state.value;
-    if (currentState == null || currentState.isRefreshing) return;
-
-    PrivacyDiagnostics.instance.record(DiagnosticEvent.feedRefreshStarted);
+    if (currentState == null || _refreshInFlight) return;
     state = AsyncData(currentState.copyWith(isRefreshing: true));
     await _refreshInBackground(resetHead: true);
   }
 
   Future<void> _refreshInBackground({bool resetHead = false}) async {
-    if (!ref.exists(feedNotifierProvider)) return;
+    if (_refreshInFlight || !ref.mounted) {
+      PrivacyDiagnostics.instance.record(
+          DiagnosticEvent.feedRefreshCoalesced);
+      return;
+    }
+    _refreshInFlight = true;
+    PrivacyDiagnostics.instance.record(DiagnosticEvent.feedRefreshStarted);
+    try {
+      await _performBackgroundRefresh(resetHead: resetHead);
+    } catch (error) {
+      AppLogger.log('Background refresh could not start: $error');
+      PrivacyDiagnostics.instance.record(DiagnosticEvent.feedLoadFailed);
+    } finally {
+      _refreshInFlight = false;
+      if (ref.mounted) {
+        final current = state.value;
+        if (current != null && current.isRefreshing) {
+          state = AsyncData(current.copyWith(isRefreshing: false));
+        }
+      }
+    }
+  }
+
+  Future<void> _performBackgroundRefresh({bool resetHead = false}) async {
+    if (!ref.mounted) return;
 
     final client = ref.read(twitterClientProvider);
     final settings = ref.read(settingsProvider);
@@ -487,16 +552,8 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
       }
 
       // 2. Fetch local pool (now including fresh items)
-      final localPool = await Repository.getCachedMediaCandidates(
-        settings.loadBatchSize * settings.dbCandidateMultiplier,
-        avoidWatchedContent: true,
-        filters: settings.filters,
-        allowedHandles: allowedHandles,
-      );
-      final localTagged = filterByFeedback(
-        onlyLocalSubscriptionVideos(localPool, allowedHandles), reactions,
-        blockedHashtags: blockedHashtags,
-      ).map((t) => t.copyWith(source: 'Cache')).toList();
+      final localTagged = await _getLocalCandidates(
+          settings, allowedHandles, reactions, blockedHashtags);
 
       final currentAsync = ref.read(feedNotifierProvider);
       if (currentAsync.hasValue) {
