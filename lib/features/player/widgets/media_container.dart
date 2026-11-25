@@ -80,7 +80,7 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer> {
   }
 
   void _armStartup(Player player) {
-    if (_startupClock != null || _failureReported || !widget.isVisible) return;
+    if (_startupClock != null || _failureReported || _playbackStarted || !widget.isVisible) return;
     _startupClock = Stopwatch()..start();
     _startupTimer = Timer(const Duration(seconds: 6), () {
       if (!mounted || !widget.isVisible || _playbackStarted ||
@@ -91,7 +91,7 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer> {
   }
 
   void _reportFailure() {
-    if (!mounted || !widget.isVisible || _failureReported) return;
+    if (!mounted || !widget.isVisible || _failureReported || _shortSkipped) return;
     _failureReported = true;
     _startupTimer?.cancel();
     PrivacyDiagnostics.instance.record(DiagnosticEvent.videoPlaybackFailed);
@@ -101,6 +101,7 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer> {
   void _skipShortOrUnknownVideo() {
     if (!mounted || !widget.isVisible || _shortSkipped) return;
     _shortSkipped = true;
+    _startupTimer?.cancel();
     PrivacyDiagnostics.instance.record(DiagnosticEvent.videoSkippedTooShort);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && widget.isVisible) widget.onPlaybackError?.call();
