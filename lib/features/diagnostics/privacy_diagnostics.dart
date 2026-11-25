@@ -27,6 +27,11 @@ enum DiagnosticEvent {
   dislikeAdvanceNoNext,
   videoPlaybackCompleted,
   videoPlaybackRetry,
+  videoPlaybackStarted,
+  videoStartupTimeout,
+  videoPlayerStreamError,
+  videoAdvanceWaitingForReserve,
+  feedReserveSample,
   videoPlaybackFailed,
   videoSkippedTooShort,
   videoDurationUnknown,
@@ -57,23 +62,26 @@ enum DiagnosticEvent {
   updateCheckFailed,
 }
 
-/// ONLY an event enum and an optional aggregate count are accepted. An event
+/// ONLY an event enum and optional aggregate count and duration are accepted. An event
 /// cannot encode a user-visible item identity, even as a hashed identifier.
 class DiagnosticEntry {
   const DiagnosticEntry({
     required this.elapsedMs,
     required this.event,
     this.countBucket,
+    this.durationBucket,
   });
 
   final int elapsedMs;
   final DiagnosticEvent event;
   final String? countBucket;
+  final String? durationBucket;
 
   Map<String, Object> toJson() => {
     'elapsed_ms': elapsedMs,
     'event': event.name,
     if (countBucket != null) 'count_bucket': countBucket!,
+    if (durationBucket != null) 'duration_bucket': durationBucket!,
   };
 }
 
@@ -82,6 +90,14 @@ String countBucket(int count) {
   if (count < 5) return 'one_to_four';
   if (count < 20) return 'five_to_nineteen';
   return 'twenty_plus';
+}
+
+String durationBucket(int ms) {
+  if (ms < 250) return 'under_250ms';
+  if (ms < 1000) return '250ms_to_1s';
+  if (ms < 3000) return '1s_to_3s';
+  if (ms < 6000) return '3s_to_6s';
+  return '6s_plus';
 }
 
 /// No background collection: recording starts ONLY after an explicit tap.
@@ -114,7 +130,7 @@ class PrivacyDiagnostics extends ChangeNotifier {
     notifyListeners();
   }
 
-  void record(DiagnosticEvent event, {int? resultCount}) {
+  void record(DiagnosticEvent event, {int? resultCount, int? durationMs}) {
     if (!_recording) return;
     if (_entries.length >= maxEvents) {
       _droppedEvents++;
@@ -124,6 +140,7 @@ class PrivacyDiagnostics extends ChangeNotifier {
       elapsedMs: _stopwatch?.elapsedMilliseconds ?? 0,
       event: event,
       countBucket: resultCount == null ? null : countBucket(resultCount),
+      durationBucket: durationMs == null ? null : durationBucket(durationMs),
     ));
     // Notify only the diagnostics screen, not every widget in the app.
     notifyListeners();
@@ -139,7 +156,7 @@ class PrivacyDiagnostics extends ChangeNotifier {
     }
     _finishedReport = const JsonEncoder.withIndent('  ').convert({
       'format': 'twit_vid_anonymous_diagnostics_v1',
-      'app_version': '0.28.0',
+      'app_version': '0.29.0',
       'elapsed_seconds': duration ~/ 1000,
       'event_count': _entries.length,
       'events_dropped_due_to_limit': _droppedEvents,
