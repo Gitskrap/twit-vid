@@ -32,16 +32,77 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
   int _currentIndex = 0;
   bool _poolUpdateScheduled = false;
   String? _lastMarkedVideoId;
-  int _lastAutofetchedLength = -1;
+  static const int _reserveTarget = 30;
+  Timer? _reserveTimer;
+  Timer? _advanceTimer;
+  String? _pendingAdvanceId;
+  int _lastReserve = -1;
+
+  @override
+  void initState() {
+    super.initState();
+    _reserveTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (mounted) _maintainReserve();
+    });
+  }
+
+  bool _feedActive() {
+    final nav = ref.read(navigationProvider);
+    return nav.currentTab == MainTab.media && !nav.isVideoSearchOpen &&
+        nav.selectedUser == null && nav.selectedHashtag == null;
+  }
+
+  void _maintainReserve() {
+    if (!mounted || !_feedActive()) return;
+    final feed = ref.read(feedNotifierProvider).value;
+    if (feed == null) return;
+    final remaining = (feed.tweets.length - _currentIndex - 1).clamp(0, feed.tweets.length).toInt();
+    if (remaining != _lastReserve) {
+      _lastReserve = remaining;
+      PrivacyDiagnostics.instance.record(DiagnosticEvent.feedReserveSample,
+          resultCount: remaining);
+    }
+    final pending = _pendingAdvanceId;
+    if (pending != null && _currentIndex < feed.tweets.length &&
+        feed.tweets[_currentIndex].id == pending && remaining > 0 &&
+        _pageController.hasClients) {
+      _pendingAdvanceId = null;
+      _pageController.jumpToPage(_currentIndex + 1);
+      return;
+    }
+    if (!feed.isRefreshing && !feed.isLoadingMore && remaining < _reserveTarget) {
+      unawaited(ref.read(feedNotifierProvider.notifier).fetchMore());
+    }
+  }
+
+  void _requestAdvance(String id, int delaySeconds) {
+    if (_advanceTimer?.isActive == true || _pendingAdvanceId == id) return;
+    _advanceTimer = Timer(Duration(seconds: delaySeconds.clamp(0, 2).toInt()), () {
+      if (!mounted || !_feedActive()) return;
+      final tweets = ref.read(feedNotifierProvider).value?.tweets ?? const <Tweet>[];
+      if (_currentIndex >= tweets.length || tweets[_currentIndex].id != id) return;
+      if (_currentIndex + 1 < tweets.length && _pageController.hasClients) {
+        _pageController.jumpToPage(_currentIndex + 1);
+      } else {
+        _pendingAdvanceId = id;
+        PrivacyDiagnostics.instance.record(DiagnosticEvent.videoAdvanceWaitingForReserve);
+        _maintainReserve();
+      }
+    });
+  }
 
   @override
   void dispose() {
+    _reserveTimer?.cancel();
+    _advanceTimer?.cancel();
     _pageController.dispose();
     super.dispose();
   }
 
   void _onPageChanged(int page) {
     if (page != _currentIndex) {
+      _advanceTimer?.cancel();
+      _pendingAdvanceId = null;
       PrivacyDiagnostics.instance.record(DiagnosticEvent.videoAdvanced);
       setState(() {
         _currentIndex = page;
@@ -61,12 +122,7 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
           }
         }
 
-        final settings = ref.read(settingsProvider);
-        if (page >= tweets.length - settings.lazyLoadThreshold &&
-            !feedAsync.value!.isRefreshing &&
-            !feedAsync.value!.isLoadingMore) {
-          unawaited(ref.read(feedNotifierProvider.notifier).fetchMore());
-        }
+        _maintainReserve();
       }
     }
   }
@@ -81,7 +137,7 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
       final pool = ref.read(playerPoolProvider.notifier);
       final activeIds = <String>{};
 
-      for (int i = _currentIndex - 1; i <= _currentIndex + 1; i++) {
+      for (int i = _currentIndex; i <= _currentIndex + 3; i++) {
         if (i >= 0 && i < tweets.length) {
           final tweet = tweets[i];
           activeIds.add(tweet.id);
@@ -104,9 +160,7 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _poolUpdateScheduled = false;
       if (mounted) {
-        final nav = ref.read(navigationProvider);
-        if (nav.isVideoSearchOpen || nav.selectedHashtag != null ||
-            nav.currentTab != MainTab.media) return;
+        if (!_feedActive()) return;
         _managePool();
         final tweets = ref.read(feedNotifierProvider).value?.tweets;
         if (tweets != null && _currentIndex < tweets.length) {
@@ -123,15 +177,8 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
           // whole feed. Never block rendering or playback.
           unawaited(ref.read(feedNotifierProvider.notifier)
               .refreshVisibleEngagement(tweets[_currentIndex].id));
-          final feedState = ref.read(feedNotifierProvider).value;
-          final threshold = ref.read(settingsProvider).lazyLoadThreshold;
-          if (feedState != null &&
-              !feedState.isRefreshing && !feedState.isLoadingMore &&
-              _currentIndex >= tweets.length - threshold &&
-              _lastAutofetchedLength != tweets.length) {
-            _lastAutofetchedLength = tweets.length;
-            unawaited(ref.read(feedNotifierProvider.notifier).fetchMore());
-          }
+          // Refill from the periodic timer or page change, not every rebuild.
+
         }
       }
     });
@@ -246,6 +293,8 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
                     IconButton(
                       tooltip: 'Actualiser',
                       onPressed: () {
+                        _advanceTimer?.cancel();
+                        _pendingAdvanceId = null;
                         if (_pageController.hasClients) _pageController.jumpToPage(0);
                         ref.read(feedNotifierProvider.notifier).refresh();
                       },
@@ -313,6 +362,8 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
                   isVisible: index == _currentIndex && isScreenActive,
                   onDislike: () {
                     if (!mounted || index != _currentIndex) return;
+                    _advanceTimer?.cancel();
+                    _pendingAdvanceId = null;
                     final rejectedId = tweets[index].id;
                     PrivacyDiagnostics.instance.record(
                         DiagnosticEvent.dislikeAdvanceRequested);
@@ -345,22 +396,11 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
                           ? DiagnosticEvent.dislikeAdvanceConfirmed
                           : DiagnosticEvent.dislikeAdvanceNoNext);
                     });
-                    if (after.length <= 3) {
-                      unawaited(ref.read(feedNotifierProvider.notifier)
-                          .fetchMore());
-                    }
+                    _maintainReserve();
                   },
                   onPlaybackError: () {
                     if (index == _currentIndex && mounted) {
-                      Future.delayed(
-                          Duration(seconds: settings.autoSkipDelaySeconds), () {
-                        if (mounted && _currentIndex == index) {
-                          _pageController.nextPage(
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeInOut,
-                          );
-                        }
-                      });
+                      _requestAdvance(tweets[index].id, settings.autoSkipDelaySeconds);
                     }
                   },
                 );
@@ -406,7 +446,6 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
             const SizedBox(height: 16),
             FilledButton.tonalIcon(
               onPressed: () {
-                _lastAutofetchedLength = -1;
                 unawaited(ref.read(feedNotifierProvider.notifier).refresh());
               },
               icon: const Icon(Icons.refresh),
