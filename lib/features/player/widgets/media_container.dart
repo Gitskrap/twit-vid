@@ -63,6 +63,40 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer> {
   int? _persistedDurationMs;
   Timer? _durationValidationTimer;
   bool _shortSkipped = false;
+  bool _retryInFlight = false;
+  bool _failureReported = false;
+  bool _playbackStarted = false;
+  Stopwatch? _startupClock;
+  Timer? _startupTimer;
+  Player? _subscribedPlayer;
+
+  void _resetStartup() {
+    _startupTimer?.cancel();
+    _startupTimer = null;
+    _startupClock = null;
+    _playbackStarted = false;
+    _failureReported = false;
+    _retryInFlight = false;
+  }
+
+  void _armStartup(Player player) {
+    if (_startupClock != null || _failureReported || !widget.isVisible) return;
+    _startupClock = Stopwatch()..start();
+    _startupTimer = Timer(const Duration(seconds: 6), () {
+      if (!mounted || !widget.isVisible || _playbackStarted ||
+          !identical(_subscribedPlayer, player) || !ref.read(settingsProvider).autoplay) return;
+      PrivacyDiagnostics.instance.record(DiagnosticEvent.videoStartupTimeout);
+      _reportFailure();
+    });
+  }
+
+  void _reportFailure() {
+    if (!mounted || !widget.isVisible || _failureReported) return;
+    _failureReported = true;
+    _startupTimer?.cancel();
+    PrivacyDiagnostics.instance.record(DiagnosticEvent.videoPlaybackFailed);
+    widget.onPlaybackError?.call();
+  }
 
   void _skipShortOrUnknownVideo() {
     if (!mounted || !widget.isVisible || _shortSkipped) return;
@@ -81,6 +115,14 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer> {
     _previousWatchPosition = null;
     _watchRecorded = false;
     _watchPositionSubscription = player.stream.position.listen((position) {
+      if (mounted && widget.isVisible && player.state.playing &&
+          !_playbackStarted && _startupClock != null && position > Duration.zero) {
+        _playbackStarted = true;
+        _startupTimer?.cancel();
+        final latency = _startupClock!.elapsedMilliseconds;
+        PrivacyDiagnostics.instance.record(DiagnosticEvent.videoPlaybackStarted,
+            durationMs: latency);
+      }
       if (!mounted || !widget.isVisible || !player.state.playing ||
           _watchRecorded) {
         _previousWatchPosition = position;
@@ -119,6 +161,8 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer> {
       _completedSubscription = null;
       _watchPositionSubscription = null;
       _watchedPlayer = null;
+      _subscribedPlayer = null;
+      _resetStartup();
       _previousWatchPosition = null;
       _watchedMs = 0;
       _watchRecorded = false;
@@ -129,10 +173,13 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer> {
     }
     if (!oldWidget.isVisible && widget.isVisible) {
       _isAutoFullscreenDone = false;
+      _resetStartup();
+      _retryCount = 0;
       _shortSkipped = false;
       _previousWatchPosition = null;
       _watchedMs = 0;
     } else if (oldWidget.isVisible && !widget.isVisible) {
+      _resetStartup();
       _durationValidationTimer?.cancel();
       _durationValidationTimer = null;
       _previousWatchPosition = null;
@@ -146,6 +193,7 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer> {
     _completedSubscription?.cancel();
     _watchPositionSubscription?.cancel();
     _durationValidationTimer?.cancel();
+    _startupTimer?.cancel();
     super.dispose();
   }
 
@@ -177,32 +225,30 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer> {
     }
   }
 
-  void _handleError(dynamic error) async {
+  Future<void> _handleError(dynamic error) async {
+    if (!mounted || !widget.isVisible || _retryInFlight || _failureReported ||
+        _shortSkipped) return;
+    final player = _subscribedPlayer;
+    final id = widget.tweet.id;
+    if (player == null) return;
     final settings = ref.read(settingsProvider);
-
-    // Exit fullscreen on error
-    final state = _videoKey.currentState;
-    if (state != null && state.isFullscreen()) {
-      await state.exitFullscreen();
+    PrivacyDiagnostics.instance.record(DiagnosticEvent.videoPlayerStreamError);
+    if (_retryCount >= settings.playbackRetryLimit) {
+      _reportFailure();
+      return;
     }
-
-    if (_retryCount < settings.playbackRetryLimit) {
-      _retryCount++;
-      PrivacyDiagnostics.instance.record(DiagnosticEvent.videoPlaybackRetry);
-      AppLogger.log(
-          'XFLOW: Video playback error. Retrying ($_retryCount/${settings.playbackRetryLimit})... Error: $error');
-
-      final pool = ref.read(playerPoolProvider);
-      final instance = pool[widget.tweet.id];
-      if (instance != null) {
-        // Re-open media to retry
-        instance.player
-            .open(Media(widget.tweet.mediaUrls.first), play: widget.isVisible);
-      }
-    } else {
-      PrivacyDiagnostics.instance.record(DiagnosticEvent.videoPlaybackFailed);
-      AppLogger.log('XFLOW: Video playback failed after retry. Skipping item.');
-      widget.onPlaybackError?.call();
+    _retryInFlight = true;
+    _retryCount++;
+    PrivacyDiagnostics.instance.record(DiagnosticEvent.videoPlaybackRetry);
+    try {
+      await player.open(Media(widget.tweet.mediaUrls.first),
+          play: widget.isVisible && settings.autoplay);
+    } catch (_) {
+      if (mounted && widget.tweet.id == id &&
+          identical(_subscribedPlayer, player)) _reportFailure();
+    } finally {
+      if (mounted && widget.tweet.id == id &&
+          identical(_subscribedPlayer, player)) _retryInFlight = false;
     }
   }
 
@@ -257,7 +303,16 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    // Subscribe to events if not already doing so
+    // A pooled player can be evicted and recreated while a page survives.
+    if (!identical(_subscribedPlayer, instance.player)) {
+      _errorSubscription?.cancel();
+      _completedSubscription?.cancel();
+      _errorSubscription = null;
+      _completedSubscription = null;
+      _subscribedPlayer = instance.player;
+      _resetStartup();
+      _retryCount = 0;
+    }
     _errorSubscription ??= instance.player.stream.error.listen(_handleError);
     _completedSubscription ??=
         instance.player.stream.completed.listen((completed) {
@@ -267,6 +322,13 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer> {
     final settings = ref.watch(settingsProvider);
     final videoUiHidden = ref.watch(videoUiHiddenProvider);
     _trackActualWatchTime(instance.player);
+    if (widget.isVisible && settings.autoplay) {
+      _armStartup(instance.player);
+    } else {
+      _startupTimer?.cancel();
+      _startupTimer = null;
+      _startupClock = null;
+    }
     return StreamBuilder<Duration>(
       stream: instance.player.stream.duration,
       initialData: instance.player.state.duration,
@@ -286,7 +348,7 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer> {
           } else if (widget.isVisible && _durationValidationTimer == null) {
             // Unknown durations are not allowed through on faith. Give
             // media_kit time to probe the file, otherwise skip it.
-            _durationValidationTimer = Timer(const Duration(seconds: 12), () {
+            _durationValidationTimer = Timer(const Duration(seconds: 6), () {
               _durationValidationTimer = null;
               PrivacyDiagnostics.instance.record(
                   DiagnosticEvent.videoDurationUnknown);
@@ -333,7 +395,7 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer> {
       child: StreamBuilder(
         stream: instance.player.stream.error,
         builder: (context, snapshot) {
-          if (snapshot.hasData && _retryCount >= settings.playbackRetryLimit) {
+          if (_failureReported) {
             return Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -343,10 +405,7 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer> {
                   const SizedBox(height: 16),
                   const Text('Playback failed. Moving to next...',
                       style: TextStyle(color: Colors.white70)),
-                  const SizedBox(height: 8),
-                  Text('Error: ${snapshot.data}',
-                      style:
-                          const TextStyle(color: Colors.white38, fontSize: 12)),
+
                 ],
               ),
             );
