@@ -12,6 +12,8 @@ final localVideoReactionsProvider =
     AsyncNotifierProvider<LocalVideoReactionsNotifier,
         Map<String, LocalVideoReaction>>(LocalVideoReactionsNotifier.new);
 
+final likedVideosProvider = FutureProvider<List<Tweet>>((ref) => Repository.getLikedVideos());
+
 class LocalVideoReactionsNotifier
     extends AsyncNotifier<Map<String, LocalVideoReaction>> {
   @override
@@ -44,6 +46,7 @@ class LocalVideoReactionsNotifier
     }
     try {
       await Repository.setLocalVideoReaction(tweet, value);
+      if (ref.mounted) ref.invalidate(likedVideosProvider);
     } catch (_) {
       // Restore the previous value on a local database failure.
       if (ref.mounted) {
@@ -67,6 +70,9 @@ class LocalVideoReactionsNotifier
 
   Future<void> clearAll() async {
     await Repository.clearLocalVideoReactions();
-    if (ref.mounted) state = const AsyncData({});
+    if (ref.mounted) {
+      state = const AsyncData({});
+      ref.invalidate(likedVideosProvider);
+    }
   }
 }

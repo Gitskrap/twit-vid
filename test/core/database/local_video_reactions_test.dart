@@ -45,6 +45,29 @@ void main() {
     expect(await Repository.getUserCachedMedia('creator', 10), isNotEmpty);
   });
 
+  test('liked videos survive cache pruning and can be removed', () async {
+    final db = await Repository.database;
+    await db.delete(tableLocalReactions);
+    await Repository.setLocalVideoReaction(video, 1);
+    await Repository.pruneCachedMedia(threshold: 0);
+    final liked = await Repository.getLikedVideos();
+    expect(liked.map((v) => v.id), contains(video.id));
+    expect(liked.firstWhere((v) => v.id == video.id).mediaUrls, video.mediaUrls);
+    await Repository.setLocalVideoReaction(video, 0);
+    expect(await Repository.getLikedVideos(), isEmpty);
+  });
+
+  test('old likes missing their cached media remain visible', () async {
+    final db = await Repository.database;
+    await db.delete(tableLocalReactions);
+    await Repository.setLocalVideoReaction(video, 1);
+    await db.delete(tableCachedMedia, where: 'id = ?', whereArgs: [video.id]);
+    final liked = await Repository.getLikedVideos();
+    expect(liked.single.id, video.id);
+    expect(liked.single.mediaUrls, isEmpty);
+    await Repository.clearLocalVideoReactions();
+  });
+
   test('reaction input validation', () async {
     await expectLater(
       Repository.setLocalVideoReaction(video, 3),

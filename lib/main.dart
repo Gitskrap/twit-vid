@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:flutter/services.dart';
 import 'features/feed/tiktok_feed_screen.dart';
+import 'features/feed/liked_videos_screen.dart';
 import 'features/feed/persistent_fullscreen_provider.dart';
 import 'features/search/video_search_screen.dart';
 import 'features/player/video_ui_provider.dart';
@@ -120,6 +121,7 @@ class MainScaffold extends ConsumerWidget {
         TiktokFeedScreen(),
         SubscriptionListScreen(isStandalone: false),
         HashtagListScreen(),
+        LikedVideosScreen(),
       ],
     );
 
@@ -182,10 +184,10 @@ class MainScaffold extends ConsumerWidget {
             : NavigationBar(
           selectedIndex: nav.currentTab.index,
           onDestinationSelected: (index) {
-            if (index >= 0 && index < 3) {
+            if (index >= 0 && index < 4) {
               PrivacyDiagnostics.instance.record(
                 [DiagnosticEvent.tabVideos, DiagnosticEvent.tabSubscriptions,
-                  DiagnosticEvent.tabHashtags][index],
+                  DiagnosticEvent.tabHashtags, DiagnosticEvent.tabLiked][index],
               );
             }
             navNotifier.setTab(MainTab.values[index]);
@@ -208,6 +210,11 @@ class MainScaffold extends ConsumerWidget {
               icon: Icon(Icons.trending_up_outlined),
               selectedIcon: Icon(Icons.trending_up, color: Color(0xFF70F0CE)),
               label: 'Hashtags',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.favorite_border),
+              selectedIcon: Icon(Icons.favorite, color: Color(0xFF70F0CE)),
+              label: 'J’aime',
             ),
           ],
         ),

@@ -249,9 +249,8 @@ class UserDetailsScreen extends ConsumerWidget {
                                                         .getInstance(),
                                                 imageUrl: tweet.thumbnailUrl ??
                                                     tweet.mediaUrls.first,
-                                                fit: BoxFit.cover,
+                                                fit: BoxFit.contain,
                                                 memCacheWidth: 150,
-                                                memCacheHeight: 150,
                                               ),
                                             )
                                           : const Icon(Icons.text_fields),
@@ -288,7 +287,7 @@ class UserDetailsScreen extends ConsumerWidget {
                               crossAxisCount: 3,
                               crossAxisSpacing: 4,
                               mainAxisSpacing: 4,
-                              childAspectRatio: 1,
+                              childAspectRatio: 9 / 12,
                             ),
                             delegate: SliverChildBuilderDelegate(
                               (context, index) {
@@ -330,9 +329,8 @@ class UserDetailsScreen extends ConsumerWidget {
                                                     .getInstance(),
                                             imageUrl: tweet.thumbnailUrl ??
                                                 tweet.mediaUrls.first,
-                                            fit: BoxFit.cover,
+                                            fit: BoxFit.contain,
                                             memCacheWidth: 300,
-                                            memCacheHeight: 300,
                                             placeholder: (context, url) =>
                                                 Container(
                                                     color: Colors.black12),

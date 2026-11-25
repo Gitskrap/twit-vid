@@ -9,6 +9,7 @@ enum DiagnosticEvent {
   tabVideos,
   tabSubscriptions,
   tabHashtags,
+  tabLiked,
   searchOpened,
   searchStarted,
   searchFound,
@@ -156,7 +157,7 @@ class PrivacyDiagnostics extends ChangeNotifier {
     }
     _finishedReport = const JsonEncoder.withIndent('  ').convert({
       'format': 'twit_vid_anonymous_diagnostics_v1',
-      'app_version': '0.29.0',
+      'app_version': '0.30.0',
       'elapsed_seconds': duration ~/ 1000,
       'event_count': _entries.length,
       'events_dropped_due_to_limit': _droppedEvents,

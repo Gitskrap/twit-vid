@@ -209,6 +209,9 @@ class Repository {
           where: 'video_id = ?', whereArgs: [tweet.id]);
       return;
     }
+    if (reaction == 1 && tweet.isVideo && tweet.mediaUrls.isNotEmpty) {
+      await insertCachedMedia([tweet]);
+    }
     await db.insert(
       tableLocalReactions,
       {
@@ -220,6 +223,41 @@ class Repository {
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+  }
+
+  /// Keep even older likes whose media was removed by an earlier cache purge.
+  /// A missing media row becomes a recoverable entry, not a lost preference.
+  static Future<List<Tweet>> getLikedVideos() async {
+    final db = await database;
+    final rows = await db.rawQuery('''
+      SELECT c.*, r.video_id AS saved_id, r.caption AS saved_caption,
+             r.author AS saved_author
+      FROM $tableLocalReactions r
+      LEFT JOIN $tableCachedMedia c ON c.id = r.video_id
+      WHERE r.reaction = 1 AND (c.id IS NULL OR c.is_video = 1)
+      ORDER BY r.updated_at DESC, r.rowid DESC
+    ''');
+    return rows.map((row) => Tweet(
+      id: row['saved_id'] as String,
+      text: (row['text'] ?? row['saved_caption']) as String,
+      userHandle: (row['user_handle'] ?? row['saved_author']) as String,
+      userAvatarUrl: row['user_avatar_url'] as String?,
+      mediaKey: row['media_key'] as String?,
+      mediaUrls: row['media_urls'] == null ? const <String>[] :
+          List<String>.from(jsonDecode(row['media_urls'] as String)),
+      thumbnailUrl: row['thumbnail_url'] as String?,
+      durationMs: row['duration_ms'] as int?,
+      isVideo: true,
+      retrievedVia: row['retrieved_via'] as String?,
+      favoriteCount: row['favorite_count'] as int? ?? 0,
+      replyCount: row['reply_count'] as int? ?? 0,
+      favoriteCountKnown: row['favorite_count'] != null,
+      replyCountKnown: row['reply_count'] != null,
+      isLiked: row['is_liked'] == 1,
+      isLikedKnown: row['is_liked'] != null,
+      createdAt: row['created_at'] == null ? null :
+          DateTime.fromMillisecondsSinceEpoch(row['created_at'] as int),
+    )).toList();
   }
 
   static Future<void> clearLocalVideoReactions() async {
@@ -838,7 +876,7 @@ class Repository {
         DateTime.now().subtract(const Duration(days: 7)).millisecondsSinceEpoch;
     await db.delete(
       tableCachedMedia,
-      where: 'created_at < ?',
+      where: 'created_at < ? AND id NOT IN (SELECT video_id FROM $tableLocalReactions WHERE reaction = 1)',
       whereArgs: [sevenDaysAgo],
     );
 
@@ -853,6 +891,7 @@ class Repository {
         DELETE FROM $tableCachedMedia 
         WHERE id IN (
           SELECT id FROM $tableCachedMedia 
+          WHERE id NOT IN (SELECT video_id FROM $tableLocalReactions WHERE reaction = 1)
           ORDER BY COALESCE(last_played_at, created_at) ASC 
           LIMIT ?
         )
@@ -864,7 +903,7 @@ class Repository {
     final db = await database;
     await db.delete(
       tableCachedMedia,
-      where: 'played_count > 0',
+      where: 'played_count > 0 AND id NOT IN (SELECT video_id FROM $tableLocalReactions WHERE reaction = 1)',
     );
   }
 

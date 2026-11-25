@@ -102,7 +102,7 @@ void main() {
     recorder.record(DiagnosticEvent.videoPlaybackStarted, durationMs: 732);
     recorder.record(DiagnosticEvent.feedReserveSample, resultCount: 27);
     final report = jsonDecode(recorder.stop()) as Map<String, dynamic>;
-    expect(report['app_version'], '0.29.0');
+    expect(report['app_version'], '0.30.0');
     expect(report['timeline'][0]['duration_bucket'], '250ms_to_1s');
     expect(report['timeline'][1]['count_bucket'], 'twenty_plus');
     expect(report['timeline'][0].containsKey('duration_ms'), false);
