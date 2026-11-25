@@ -29,7 +29,7 @@ void main() {
     expect(events[2]['count_bucket'], 'five_to_nineteen');
     for (final event in events) {
       expect((event as Map).keys,
-          everyElement(isIn({'elapsed_ms', 'event', 'count_bucket'})));
+          everyElement(isIn({'elapsed_ms', 'event', 'count_bucket', 'duration_bucket'})));
       expect(event['elapsed_ms'], greaterThanOrEqualTo(0));
       expect(DiagnosticEvent.values.map((e) => e.name),
           contains(event['event']));
@@ -95,6 +95,18 @@ void main() {
     final data = jsonDecode(recorder.stop()) as Map<String, dynamic>;
     expect(data['timeline'], hasLength(PrivacyDiagnostics.maxEvents));
     expect(data['events_dropped_due_to_limit'], 5);
+  });
+
+  test('playback latency and reserve remain bucketed and anonymous', () {
+    recorder.start();
+    recorder.record(DiagnosticEvent.videoPlaybackStarted, durationMs: 732);
+    recorder.record(DiagnosticEvent.feedReserveSample, resultCount: 27);
+    final report = jsonDecode(recorder.stop()) as Map<String, dynamic>;
+    expect(report['app_version'], '0.29.0');
+    expect(report['timeline'][0]['duration_bucket'], '250ms_to_1s');
+    expect(report['timeline'][1]['count_bucket'], 'twenty_plus');
+    expect(report['timeline'][0].containsKey('duration_ms'), false);
+    expect(durationBucket(6000), '6s_plus');
   });
 
   test('count bucketing does not disclose exact result totals', () {
