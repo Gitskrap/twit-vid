@@ -47,10 +47,20 @@ class PlayerPoolNotifier extends Notifier<Map<String, PlayerInstance>> {
       ),
     );
     // Must mute before opening media: no audible first frame at app launch.
-    unawaited(player.setVolume(ref.read(videoMutedProvider) ? 0 : 100));
-    unawaited(player.open(Media(url), play: false)); // Pre-load silently
+    final muted = ref.read(videoMutedProvider);
+    unawaited(_prepare(player, url, muted));
 
     state = {...state, id: PlayerInstance(player, controller)};
+  }
+
+  Future<void> _prepare(Player player, String url, bool muted) async {
+    try {
+      await player.setVolume(muted ? 0 : 100);
+      await player.open(Media(url), play: false);
+    } catch (_) {
+      // The visible player has its own timeout/retry. A disposed or failed
+      // speculative player must never throw an unhandled async exception.
+    }
   }
 
   void cleanupExcept(Set<String> activeIds) {
