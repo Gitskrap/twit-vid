@@ -201,8 +201,8 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
       }
       if (accepted.length >= 15) break;
     }
-    _discoverySeen.addAll(accepted.keys);
     final chosen = accepted.values.take(15).toList();
+    _discoverySeen.addAll(chosen.map((video) => video.id));
     // Persist BEFORE exposing results. Otherwise markMediaAsPlayed updates
     // zero rows and recommended clips repeat on the next app launch.
     if (chosen.isNotEmpty) {
@@ -462,7 +462,7 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
 
   Future<void> refresh() async {
     final currentState = state.value;
-    if (currentState == null || _refreshInFlight) return;
+    if (currentState == null || _refreshInFlight || currentState.isLoadingMore) return;
     state = AsyncData(currentState.copyWith(isRefreshing: true));
     await _refreshInBackground(resetHead: true);
   }
@@ -708,6 +708,7 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
             tweets: merged, isLoadingMore: false));
         _reportLoadResult(added);
       } catch (error) {
+        _loadMoreRetryAfter = DateTime.now().add(const Duration(seconds: 25));
         PrivacyDiagnostics.instance.record(DiagnosticEvent.feedLoadFailed);
         AppLogger.log('Personalized load-more failed: $error');
         if (ref.mounted) {
@@ -958,6 +959,7 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
       debugPrint(
           'XFLOW: fetchMore complete. Added ${finalNewTweets.length} tweets. Total: ${combined.length}');
     } catch (e, st) {
+      _loadMoreRetryAfter = DateTime.now().add(const Duration(seconds: 25));
       PrivacyDiagnostics.instance.record(DiagnosticEvent.feedLoadFailed);
       debugPrint('Error fetching more: $e\n$st');
       if (ref.mounted) {
