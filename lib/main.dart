@@ -26,6 +26,7 @@ import 'core/utils/lifecycle_provider.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
+  await PrivacyDiagnostics.instance.initialize();
   // Honor device orientation: portrait or either landscape direction.
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
@@ -48,6 +49,9 @@ class XFlowApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Listen to lifecycle changes
     ref.listen(lifecycleProvider, (previous, next) {
+      if (next != AppLifecycle.resumed) {
+        PrivacyDiagnostics.instance.flush();
+      }
       if (next == AppLifecycle.resumed) {
         debugPrint('XFLOW: App resumed. Ensuring BackgroundSync is active.');
         TwitterClient.resetQueue();

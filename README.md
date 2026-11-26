@@ -20,7 +20,7 @@ Ce projet est un **fork indépendant de [XFlow](https://github.com/Alchemist-Alo
 - **Abonnements locaux** : ajouter ou retirer des comptes publics dans l'application sans les suivre sur X ; l'accès aux vidéos dépend toutefois des sources disponibles.
 - **Recherche de vidéos et de hashtags** : tentative par X, source publique de secours, puis résultats déjà présents dans le cache si le réseau ou les services échouent.
 - **Lecteur vertical** : défilement fluide, barre de progression manipulable, son coupé au démarrage, mode paysage et plein écran conservé lors du changement de vidéo.
-- **Diagnostic anonyme sur demande** : enregistrement d'une session d'utilisation, consultation du rapport détaillé puis partage volontaire. Aucun identifiant de vidéo, compte, abonnement, hashtag, mot-clé recherché ou URL n'est enregistré dans ce rapport.
+- **Diagnostic anonyme automatique** : journal local glissant, export volontaire des cinq dernières minutes, sans identifiants, comptes, abonnements, hashtags, recherches ni URL.
 - **Mises à jour intégrées** : après déverrouillage, l'application vérifie automatiquement les nouvelles GitHub Releases ; une page dans les paramètres permet aussi la vérification manuelle, le téléchargement avec progression et l'installation confirmée par Android. Les APK sont contrôlés par SHA-256 avant installation.
 - **Google Cast (bêta)** : envoi de la vidéo au téléviseur via un relais Wi-Fi local, contrôle du volume et tentative de lecture automatique de la suivante.
 - **Cache et historique locaux** : mémorisation des vidéos vues pour limiter les répétitions entre les sessions.
@@ -90,9 +90,9 @@ La génération **release** demande les informations de signature privée config
 
 ## Tester le fonctionnement avec un rapport anonyme
 
-À partir de **0.27.0**, ouvre **Paramètres → Diagnostic anonyme → Démarrer le diagnostic**. Utilise normalement le fil Vidéos, la recherche, les hashtags, les réactions et le Cast pendant plusieurs minutes. Retourne ensuite dans l'écran de diagnostic : appuie sur **Arrêter l’enregistrement**, puis sur **Afficher le rapport complet** pour vérifier son contenu avant de choisir **Partager le rapport anonymisé**. Le bouton **Effacer les données du diagnostic** supprime la session et son fichier temporaire.
+À partir de **0.31.0**, ouvre **Paramètres → Diagnostic anonyme → Télécharger le diagnostic récent**. Le journal fonctionne automatiquement et chaque export contient les cinq dernières minutes. Tu peux consulter le rapport ou effacer le journal sans arrêter la collecte.
 
-**La collecte est désactivée par défaut.** Le journal exporté est séparé des logs techniques bruts ; il contient uniquement un nombre limité d'événements issus d'une liste fermée, des durées relatives depuis le début de la session et des quantités regroupées en tranches. Il ne contient **aucun identifiant ni hash** de publication/vidéo/compte, aucun abonnement, hashtag, texte saisi, URL, message d'erreur brut, cookie, token ou horodatage absolu. Aucune donnée n'est envoyée automatiquement : toi seul choisis si et comment partager le rapport. Les détails techniques non anonymisés visibles dans les anciens logs ne doivent pas être partagés.
+**La collecte technique anonyme est automatique et locale.** Le journal récent est conservé sur le téléphone pour les redémarrages et les événements expirés sont retirés. Le journal exporté est séparé des logs techniques bruts ; il contient uniquement un nombre limité d'événements issus d'une liste fermée, des durées relatives à la fenêtre exportée et des quantités regroupées en tranches. Il ne contient **aucun identifiant ni hash** de publication/vidéo/compte, aucun abonnement, hashtag, texte saisi, URL, message d'erreur brut, cookie, token ou horodatage absolu. Aucune donnée n'est envoyée automatiquement : toi seul choisis si et comment partager le rapport. Les détails techniques non anonymisés visibles dans les anciens logs ne doivent pas être partagés.
 
 ## Confidentialité et limites
 

@@ -149,9 +149,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             children: [
               _SettingsTile(
                 icon: Icons.privacy_tip_outlined,
-                title: 'Enregistrer une session de diagnostic',
-                subtitle: 'Démarrer, arrêter et partager un rapport sans '
-                    'vidéos, comptes, abonnements ni hashtags',
+                title: 'Télécharger le diagnostic récent',
+                subtitle: 'Journal automatique : les cinq dernières minutes, '
+                    'sans vidéos, comptes, abonnements ni hashtags',
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
