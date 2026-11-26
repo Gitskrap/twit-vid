@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xflow/features/diagnostics/privacy_diagnostics.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late int now;
   late PrivacyDiagnostics recorder;
 
@@ -75,6 +77,27 @@ void main() {
     expect(raw.contains(now.toString()), false);
     for (final value in (data['privacy'] as Map).values) {
       expect(value, false);
+    }
+  });
+
+  test('recent events survive a restart but expired ones do not', () async {
+    SharedPreferences.setMockInitialValues({});
+    await recorder.initialize();
+    recorder.record(DiagnosticEvent.videoPlaybackFailed);
+    now += 200000;
+    recorder.record(DiagnosticEvent.videoAdvanced);
+    await recorder.flush();
+    now += 110000;
+    final restarted = PrivacyDiagnostics.forTest(() => now);
+    try {
+      await restarted.initialize();
+      final data = jsonDecode(restarted.snapshot()) as Map<String, dynamic>;
+      expect(data['event_count'], 1);
+      expect(data['summary']['videoAdvanced'], 1);
+      expect(data['summary'].containsKey('videoPlaybackFailed'), false);
+      await restarted.erase();
+    } finally {
+      restarted.dispose();
     }
   });
 
