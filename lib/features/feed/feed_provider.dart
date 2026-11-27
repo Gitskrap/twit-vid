@@ -402,7 +402,7 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
     try {
       // Stage 1: Immediate local candidate retrieval
       final localTagged = diversifyAuthors(await _getLocalCandidates(
-          settings, allowedHandles, reactions, blockedHashtags));
+          settings, allowedHandles, reactions, blockedHashtags)).take(45).toList();
       AppLogger.log(
           'XFLOW: Cold start: Retrieved ${localTagged.length} local candidates');
 
@@ -457,7 +457,10 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
       );
       selected = cachedVideosMatchingTopics(pool, topics);
     } else {
-      selected = onlyLocalSubscriptionVideos(pool, allowedHandles);
+      final local = onlyLocalSubscriptionVideos(pool, allowedHandles);
+      // Keep subscription candidates available. Discoveries are fetched and
+      // mixed separately rather than exposing arbitrary past searches.
+      selected = local;
     }
     return filterByFeedback(selected, reactions,
         blockedHashtags: blockedHashtags)
@@ -545,7 +548,7 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
               useChunkedSubscriptions: settings.useChunkedSubscriptions,
               minFaves: settings.minFavesFilter,
               timeoutSeconds: 12,
-            ).timeout(const Duration(seconds: 16));
+            ).timeout(const Duration(seconds: 16), onTimeout: () => TweetResponse(tweets: []));
 
       if (allowedHandles.isNotEmpty && freshResponse.tweets.isEmpty) {
         final publicResponse =

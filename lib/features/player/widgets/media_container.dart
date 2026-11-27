@@ -60,7 +60,7 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer> {
   Player? _watchedPlayer;
   Duration? _previousWatchPosition;
   int _watchedMs = 0;
-  bool _watchRecorded = false;
+  int _recordedWatchSeconds = 0;
   int? _resolvedDurationMs;
   int? _persistedDurationMs;
   Timer? _durationValidationTimer;
@@ -116,7 +116,7 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer> {
     _watchedPlayer = player;
     _watchedMs = 0;
     _previousWatchPosition = null;
-    _watchRecorded = false;
+    _recordedWatchSeconds = 0;
     _watchPositionSubscription = player.stream.position.listen((position) {
       if (mounted && widget.isVisible && player.state.playing &&
           !_playbackStarted && _startupClock != null && position > Duration.zero) {
@@ -127,7 +127,7 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer> {
             durationMs: latency);
       }
       if (!mounted || !widget.isVisible || !player.state.playing ||
-          _watchRecorded) {
+          ref.read(activeCastTweetProvider) != null) {
         _previousWatchPosition = position;
         return;
       }
@@ -143,11 +143,13 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer> {
       _previousWatchPosition = position;
       // Count only contiguous actual playback: seeking doesn't fake watching.
       if (delta > 0 && delta <= 2000) _watchedMs += delta;
-      if (_watchedMs >= 7000) {
-        _watchRecorded = true;
+      final seconds = (_watchedMs ~/ 1000).clamp(0, durationMs ~/ 1000).toInt();
+      if (seconds - _recordedWatchSeconds >= 7) {
+        final increment = seconds - _recordedWatchSeconds;
+        _recordedWatchSeconds = seconds;
         final watched = widget.tweet.copyWith(durationMs: durationMs);
         unawaited(Repository.recordMeaningfulVideoWatch(
-            watched, watchedSeconds: 7));
+            watched, watchedSeconds: increment));
       }
     });
   }
@@ -168,7 +170,7 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer> {
       _resetStartup();
       _previousWatchPosition = null;
       _watchedMs = 0;
-      _watchRecorded = false;
+      _recordedWatchSeconds = 0;
       _resolvedDurationMs = null;
       _persistedDurationMs = null;
       _shortSkipped = false;
@@ -181,6 +183,7 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer> {
       _shortSkipped = false;
       _previousWatchPosition = null;
       _watchedMs = 0;
+      _recordedWatchSeconds = 0;
     } else if (oldWidget.isVisible && !widget.isVisible) {
       _resetStartup();
       _durationValidationTimer?.cancel();

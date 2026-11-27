@@ -791,7 +791,7 @@ class Repository {
     final db = await database;
     final rows = await db.query(
       tableCachedMedia,
-      columns: ['id', 'text', 'user_handle', 'media_urls', 'duration_ms'],
+      columns: ['id', 'text', 'user_handle', 'media_urls', 'duration_ms', 'duration_watched'],
       where: 'is_video = 1 AND duration_watched >= 7 '
           'AND (duration_ms IS NULL OR duration_ms > 15000)',
       orderBy: 'last_played_at DESC, created_at DESC',
@@ -806,6 +806,7 @@ class Repository {
           mediaUrls: List<String>.from(
               jsonDecode((row['media_urls'] as String?) ?? '[]')),
           durationMs: row['duration_ms'] as int?,
+          watchedSeconds: row['duration_watched'] as int?,
           isVideo: true,
         ),
     ];

@@ -93,13 +93,22 @@ List<String> personalizedVideoTopics(
 
   // Videos actually watched for several seconds are evidence of interest,
   // not just an incidental swipe. They are softer signals than explicit likes.
+  final authorWatchCounts = <String, int>{};
   for (final video in watchedVideos) {
     if (!video.isVideo || video.text.trim().isEmpty) continue;
+    final author = video.userHandle.replaceFirst('@', '').toLowerCase();
+    final count = authorWatchCounts[author] ?? 0;
+    if (count >= 3) continue;
+    authorWatchCounts[author] = count + 1;
+    final duration = video.durationMs ?? 0;
+    final watched = video.watchedSeconds;
+    final ratio = duration > 0 && watched != null ? watched * 1000 / duration : 0.5;
+    final weight = ratio >= .8 ? 7 : ratio >= .4 ? 4 : 2;
     for (final tag in captionHashtags(video.text)) {
-      scores[tag] = (scores[tag] ?? 0) + 4;
+      scores[tag] = (scores[tag] ?? 0) + weight;
     }
     for (final word in captionKeywords(video.text)) {
-      scores[word] = (scores[word] ?? 0) + 1;
+      scores[word] = (scores[word] ?? 0) + (weight >= 7 ? 2 : 1);
     }
   }
 

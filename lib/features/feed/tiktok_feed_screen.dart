@@ -59,6 +59,7 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
     final remaining = (feed.tweets.length - _currentIndex - 1).clamp(0, feed.tweets.length).toInt();
     if (remaining != _lastReserve) {
       _lastReserve = remaining;
+      if (remaining == 0) PrivacyDiagnostics.instance.record(DiagnosticEvent.feedReserveEmpty);
       final tail = feed.tweets.skip(_currentIndex + 1).take(20).toList();
       PrivacyDiagnostics.instance.record(DiagnosticEvent.feedDistinctAuthors,
           resultCount: tail.map((v) => v.userHandle.toLowerCase()).toSet().length);
@@ -72,9 +73,6 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
       _pendingAdvanceId = null;
       _pageController.jumpToPage(_currentIndex + 1);
       return;
-    }
-    if (remaining == 0) {
-      PrivacyDiagnostics.instance.record(DiagnosticEvent.feedReserveEmpty);
     }
     if (!feed.isRefreshing && !feed.isLoadingMore && remaining < _reserveTarget) {
       unawaited(ref.read(feedNotifierProvider.notifier).fetchMore());

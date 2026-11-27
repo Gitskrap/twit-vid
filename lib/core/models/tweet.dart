@@ -11,6 +11,8 @@ class Tweet {
   final bool isVideo;
   /// Duration from X or the local player, in milliseconds. Null is unverified.
   final int? durationMs;
+  /// Local viewing history only; never included in diagnostic exports.
+  final int? watchedSeconds;
   final DateTime? createdAt;
   final String? source; // "API" or "Cache" or other metadata
   /// X account used to fetch metadata, "Public" for anonymous requests.
@@ -34,6 +36,7 @@ class Tweet {
     this.thumbnailUrl,
     this.isVideo = false,
     this.durationMs,
+    this.watchedSeconds,
     DateTime? createdAt,
     this.source,
     this.retrievedVia,
@@ -60,6 +63,7 @@ class Tweet {
     String? thumbnailUrl,
     bool? isVideo,
     int? durationMs,
+    int? watchedSeconds,
     DateTime? createdAt,
     String? source,
     String? retrievedVia,
@@ -80,6 +84,7 @@ class Tweet {
       thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
       isVideo: isVideo ?? this.isVideo,
       durationMs: durationMs ?? this.durationMs,
+      watchedSeconds: watchedSeconds ?? this.watchedSeconds,
       createdAt: createdAt ?? this.createdAt,
       source: source ?? this.source,
       retrievedVia: retrievedVia ?? this.retrievedVia,

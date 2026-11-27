@@ -44,11 +44,17 @@ void main() {
       for (var i = 0; i < 5; i++)
         clip('b$i', 'related', author: '@unfollowed'),
     ];
-    final mixed = mixRelatedVideos(following, related);
+    final mixed = mixRelatedVideos(following, related, interval: 3);
     expect(mixed.length, 8);
     expect(mixed[3].source, 'Découverte');
     expect(mixed[7].source, 'Découverte');
     expect(mixed.take(3).every((t) => t.userHandle == '@saved'), isTrue);
+  });
+
+  test('default mix alternates followed and discovery videos', () {
+    final following = [clip('a', 'sport'), clip('b', 'sport')];
+    final related = [clip('c', 'sport', author: '@other'), clip('d', 'sport', author: '@third')];
+    expect(mixRelatedVideos(following, related).map((t) => t.id), ['a', 'c', 'b', 'd']);
   });
 
   test('duplicates suppressed; interests can suggest without subscriptions', () {

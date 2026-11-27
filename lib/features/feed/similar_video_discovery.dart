@@ -45,8 +45,8 @@ List<String> topicsFromSubscribedVideos(
   return ranked.take(limit).map((entry) => entry.key).toList();
 }
 
-/// Feed remains primarily the local subscriptions: one discovery video after
-/// every three local videos. Old recommendations cannot crowd out followees.
+/// Alternate followed creators and related discoveries by default; callers
+/// may request a different interval. Keep extra fresh discoveries available.
 List<Tweet> mixRelatedVideos(
   List<Tweet> subscriptions,
   List<Tweet> recommendations, {
@@ -83,6 +83,9 @@ List<Tweet> mixRelatedVideos(
   // EVERY recommendation. Keep one relevant discovery in sparse batches.
   if (index == 0 && suggested.isNotEmpty) {
     output.add(suggested.first.copyWith(source: 'Découverte'));
+  }
+  while (interval == 1 && index < suggested.length && output.length < 30) {
+    output.add(suggested[index++].copyWith(source: 'Découverte'));
   }
   return output;
 }

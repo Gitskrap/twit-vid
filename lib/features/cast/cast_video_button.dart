@@ -206,11 +206,10 @@ class ActiveCastTweetNotifier extends Notifier<String?> {
       GoogleCastRemoteMediaClient.instance.mediaStatusStream.listen((status) {
         if (_loading || _stoppedByUser || _advancing || state == null ||
             state == '__diagnostic__' || status == null) return;
-        if (status.mediaSessionID != _currentMediaSessionId ||
-            !_confirmedPlaying) return;
-        if (status.playerState == CastMediaPlayerState.playing) return;
-        if (status.playerState.name.toLowerCase() != 'idle' ||
-            status.idleReason?.name.toLowerCase() != 'finished') return;
+        if (!isConfirmedCastFinish(loading: _loading, confirmedPlaying: _confirmedPlaying,
+            expectedSession: _currentMediaSessionId, reportedSession: status.mediaSessionID,
+            idle: status.playerState.name.toLowerCase() == 'idle',
+            finished: status.idleReason?.name.toLowerCase() == 'finished')) return;
         _confirmedPlaying = false; // consume this finish exactly once
         PrivacyDiagnostics.instance.record(DiagnosticEvent.castVideoFinished);
         _advancing = true;
@@ -369,36 +368,25 @@ class ActiveCastTweetNotifier extends Notifier<String?> {
 
     // loadMedia only acknowledges sending a request. Do not report success or
     // pause the local player until the receiver confirms real playback.
-    final confirmed = await client.mediaStatusStream
-        .timeout(
-          const Duration(seconds: 25),
-          onTimeout: (sink) => sink.addError(
-            TimeoutException(
-              'Le téléviseur ne confirme pas la lecture. '
-              '${_proxy?.diagnostics ?? 'Vérifie le réseau du Chromecast.'}',
-            ),
-          ),
-        )
-        .firstWhere((status) {
+    bool confirms(GoggleCastMediaStatus? status) {
       if (status == null) return false;
       final info = status.mediaInformation;
       final matches = info?.contentId == castUrl.toString() ||
           info?.contentUrl?.toString() == castUrl.toString();
       final isNew = previousMediaSessionId == null ||
           status.mediaSessionID != previousMediaSessionId;
-
       if (!matches || !isNew) return false;
       if (status.idleReason == GoogleCastMediaIdleReason.error) {
-        throw StateError(
-          'Le Chromecast a refusé de lire la vidéo. '
-          '${_proxy?.diagnostics ?? 'Source ou codec incompatible.'} '
-          'Si aucune requête TV n’est indiquée, vérifie l’accès au '
-          'réseau local ; sinon, la vidéo peut être incompatible.',
-        );
+        throw StateError('Le Chromecast a refusé de lire la vidéo.');
       }
       return status.playerState == CastMediaPlayerState.playing;
-    });
+    }
+    final current = client.mediaStatus;
+    final confirmed = confirms(current) ? current :
+        await client.mediaStatusStream.firstWhere(confirms)
+            .timeout(const Duration(seconds: 25));
 
+    if (_stoppedByUser) throw StateError('Cast arrêté.');
     _currentMediaSessionId = confirmed!.mediaSessionID;
     _confirmedPlaying = true;
     state = tweetId ?? '__diagnostic__';

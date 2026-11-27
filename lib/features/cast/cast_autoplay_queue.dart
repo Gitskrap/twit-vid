@@ -23,3 +23,15 @@ Tweet? nextCastVideo(
   }
   return null;
 }
+
+/// A stale finish during LOAD or before the new session has actually played
+/// must not advance the queue.
+bool isConfirmedCastFinish({
+  required bool loading,
+  required bool confirmedPlaying,
+  required int? expectedSession,
+  required int reportedSession,
+  required bool idle,
+  required bool finished,
+}) => !loading && confirmedPlaying && expectedSession != null &&
+    expectedSession == reportedSession && idle && finished;
