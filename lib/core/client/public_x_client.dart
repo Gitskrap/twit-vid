@@ -5,11 +5,23 @@ import 'package:http/http.dart' as http;
 import '../database/entities.dart';
 import '../models/tweet.dart';
 import 'twitter_client.dart';
+import '../../features/diagnostics/privacy_diagnostics.dart';
+
+class PublicXHttpException implements Exception {
+  const PublicXHttpException(this.status);
+  final int status;
+  @override
+  String toString() => 'Service public indisponible (HTTP $status).';
+}
 
 /// Read-only public metadata from FxEmbed. Never sends X cookies or tokens.
 /// The service may be unavailable; saved handles remain locally accessible.
 class PublicXClient {
   static const _host = 'api.fxtwitter.com';
+  static DateTime? _searchRetryAfter;
+
+  static bool get searchCoolingDown => _searchRetryAfter != null &&
+      DateTime.now().isBefore(_searchRetryAfter!);
   final http.Client _http;
   PublicXClient({http.Client? client}) : _http = client ?? http.Client();
 
@@ -19,10 +31,7 @@ class PublicXClient {
       headers: const {'accept': 'application/json'},
     ).timeout(const Duration(seconds: 16));
     if (response.statusCode != 200) {
-      throw StateError(
-        'Service public indisponible (HTTP ' +
-            response.statusCode.toString() + ').',
-      );
+      throw PublicXHttpException(response.statusCode);
     }
     final decoded = jsonDecode(response.body);
     if (decoded is! Map<String, dynamic>) {
@@ -30,8 +39,7 @@ class PublicXClient {
     }
     final code = decoded['code'];
     if (code is num && code != 200) {
-      throw StateError('Service public : ' +
-          (decoded['message']?.toString() ?? code.toString()));
+      throw PublicXHttpException(code.toInt());
     }
     return decoded;
   }
@@ -193,12 +201,22 @@ class PublicXClient {
     }
     final filtered = text.contains('filter:videos')
         ? text : '$text filter:videos';
-    final body = await _get(Uri.https(_host, '/2/search', {
+    if (searchCoolingDown) throw const PublicXHttpException(503);
+    late Map<String, dynamic> body;
+    try {
+      body = await _get(Uri.https(_host, '/2/search', {
       'q': filtered,
       'feed': top ? 'top' : 'media',
       'count': count.clamp(1, 100).toString(),
       if (cursor?.isNotEmpty == true) 'cursor': cursor!,
     }));
+    } on PublicXHttpException catch (error) {
+      if (error.status == 503 || error.status == 429) {
+        _searchRetryAfter = DateTime.now().add(const Duration(minutes: 10));
+      }
+      recordSearchHttpStatus(error.status);
+      rethrow;
+    }
     final cursorValue = body['cursor'];
     final bottom = cursorValue is Map
         ? cursorValue['bottom']?.toString() : null;

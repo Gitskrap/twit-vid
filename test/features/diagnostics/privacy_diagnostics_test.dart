@@ -21,7 +21,7 @@ void main() {
     recorder.record(DiagnosticEvent.searchStarted);
     expect(recorder.isRecording, true);
     expect(report()['event_count'], 1);
-    expect(report()['app_version'], '0.32.0');
+    expect(report()['app_version'], '0.33.0');
   });
 
   test('exports only the last five minutes using relative timestamps', () {
@@ -99,6 +99,26 @@ void main() {
     } finally {
       restarted.dispose();
     }
+  });
+
+  test('download consumes only saved events and preserves concurrent events', () async {
+    recorder.record(DiagnosticEvent.tabVideos);
+    final location = await recorder.downloadAndClear((report) async {
+      expect(jsonDecode(report)['event_count'], 1);
+      recorder.record(DiagnosticEvent.tabLiked);
+      return 'Downloads/twit-vid-anonyme.json';
+    });
+    expect(location, contains('twit-vid-anonyme.json'));
+    expect(report()['event_count'], 1);
+    expect(report()['summary']['tabLiked'], 1);
+  });
+
+  test('failed download retains all events', () async {
+    recorder.record(DiagnosticEvent.tabVideos);
+    await expectLater(recorder.downloadAndClear((_) async {
+      throw StateError('disk full');
+    }), throwsStateError);
+    expect(report()['event_count'], 1);
   });
 
   test('idle journal ages out even without new events', () {

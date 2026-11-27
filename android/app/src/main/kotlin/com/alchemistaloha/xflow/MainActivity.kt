@@ -3,6 +3,10 @@ package com.alchemistaloha.xflow
 import android.os.SystemClock
 import android.os.Build
 import android.content.Intent
+import android.content.ContentValues
+import android.os.Environment
+import android.provider.MediaStore
+import java.util.concurrent.Executors
 import android.net.Uri
 import android.provider.Settings
 import android.content.pm.PackageManager
@@ -18,6 +22,7 @@ import io.flutter.plugin.common.MethodChannel
 
 /** Volume buttons control Cast while connected; otherwise Android behaves normally. */
 class MainActivity : FlutterFragmentActivity() {
+    private val diagnosticIo = Executors.newSingleThreadExecutor()
     private var previousSession: CastSession? = null
     private var requestedVolume = Double.NaN
     private var lastChangeAt = 0L
@@ -71,31 +76,69 @@ class MainActivity : FlutterFragmentActivity() {
             val dir = File(cacheDir, "anonymous-diagnostics")
             val reportFile = File(dir, "twit-vid-anonyme.json")
             when (call.method) {
-                "shareReport" -> {
-                    try {
-                        val report = call.argument<String>("json") ?: ""
-                        if (report.isEmpty() || report.length > 400_000 ||
-                            JSONObject(report).optString("format") !=
-                                "twit_vid_anonymous_diagnostics_v1") {
-                            result.error("INVALID_REPORT", "Rapport anonyme invalide", null)
-                            return@setMethodCallHandler
+                "downloadReport" -> {
+                    val report = call.argument<String>("json") ?: ""
+                    diagnosticIo.execute {
+                        var pending: Uri? = null
+                        var legacyFile: File? = null
+                        try {
+                            if (report.isEmpty() || report.length > 1000000 ||
+                                JSONObject(report).optString("format") !=
+                                    "twit_vid_anonymous_diagnostics_v1") {
+                                throw IllegalArgumentException("Invalid report")
+                            }
+                            val name = "twit-vid-anonyme.json"
+                            val location: String
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                val values = ContentValues().apply {
+                                    put(MediaStore.MediaColumns.DISPLAY_NAME, name)
+                                    put(MediaStore.MediaColumns.MIME_TYPE, "application/json")
+                                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                                    put(MediaStore.MediaColumns.IS_PENDING, 1)
+                                }
+                                val uri = contentResolver.insert(
+                                    MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                                    ?: throw IllegalStateException("Cannot create download")
+                                pending = uri
+                                val stream = contentResolver.openOutputStream(uri, "w")
+                                    ?: throw IllegalStateException("Cannot open download")
+                                stream.use {
+                                    it.write(report.toByteArray(Charsets.UTF_8))
+                                    it.flush()
+                                }
+                                val finalValues = ContentValues().apply {
+                                    put(MediaStore.MediaColumns.IS_PENDING, 0)
+                                }
+                                if (contentResolver.update(uri, finalValues, null, null) != 1) {
+                                    throw IllegalStateException("Cannot publish download")
+                                }
+                                val actualName = contentResolver.query(uri,
+                                    arrayOf(MediaStore.MediaColumns.DISPLAY_NAME), null, null, null)
+                                    ?.use { if (it.moveToFirst()) it.getString(0) else name } ?: name
+                                location = "Téléchargements/$actualName"
+                                pending = null
+                            } else {
+                                val folder = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+                                    ?: throw IllegalStateException("Downloads unavailable")
+                                folder.mkdirs()
+                                var file = File(folder, name)
+                                var n = 1
+                                while (file.exists()) {
+                                    file = File(folder, "twit-vid-anonyme-${n++}.json")
+                                }
+                                legacyFile = file
+                                file.writeText(report, Charsets.UTF_8)
+                                location = "Téléchargements de l’application/${file.name}"
+                                legacyFile = null
+                            }
+                            reportFile.delete()
+                            runOnUiThread { result.success(location) }
+                        } catch (_: Exception) {
+                            pending?.let { try { contentResolver.delete(it, null, null) } catch (_: Exception) {} }
+                            legacyFile?.delete()
+                            runOnUiThread { result.error("DOWNLOAD_FAILED",
+                                "Impossible d’enregistrer le diagnostic", null) }
                         }
-                        dir.mkdirs()
-                        reportFile.writeText(report, Charsets.UTF_8)
-                        val uri = FileProvider.getUriForFile(
-                            this, "$packageName.updateprovider", reportFile)
-                        val send = Intent(Intent.ACTION_SEND).apply {
-                            type = "application/json"
-                            putExtra(Intent.EXTRA_STREAM, uri)
-                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            clipData = android.content.ClipData.newRawUri("Rapport", uri)
-                        }
-                        startActivity(Intent.createChooser(send,
-                            "Partager le diagnostic anonyme"))
-                        result.success(null)
-                    } catch (error: Exception) {
-                        result.error("SHARE_FAILED",
-                            "Le partage du rapport n'a pas pu être lancé", null)
                     }
                 }
                 "deleteReport" -> {

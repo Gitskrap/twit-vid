@@ -60,6 +60,8 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
     if (remaining != _lastReserve) {
       _lastReserve = remaining;
       if (remaining == 0) PrivacyDiagnostics.instance.record(DiagnosticEvent.feedReserveEmpty);
+      PrivacyDiagnostics.instance.record(remaining >= _reserveTarget
+          ? DiagnosticEvent.feedReserveAtTarget : DiagnosticEvent.feedReserveBelowTarget);
       final tail = feed.tweets.skip(_currentIndex + 1).take(20).toList();
       PrivacyDiagnostics.instance.record(DiagnosticEvent.feedDistinctAuthors,
           resultCount: tail.map((v) => v.userHandle.toLowerCase()).toSet().length);

@@ -8,6 +8,7 @@ import '../utils/app_logger.dart';
 import '../utils/date_utils.dart';
 import '../utils/engagement_utils.dart';
 import '../../features/settings/settings_provider.dart';
+import '../../features/diagnostics/privacy_diagnostics.dart';
 
 class TweetResponse {
   List<Tweet> tweets;
@@ -540,7 +541,8 @@ class TwitterClient {
             break;
         }
       }
-      final combinedFilter = "(${filterQueries.join(' OR ')})";
+      final combinedFilter = filterQueries.length == 1
+          ? filterQueries.single : "(${filterQueries.join(' OR ')})";
       finalQuery =
           finalQuery.isEmpty ? combinedFilter : "$finalQuery $combinedFilter";
     } else if (query == null) {
@@ -612,6 +614,7 @@ class TwitterClient {
           }
 
           lastStatus = response.statusCode as int;
+          if (lastStatus != 200 && reportErrors) recordSearchHttpStatus(lastStatus);
           if (lastStatus == 429) {
             _handleRateLimit(cooldownMinutes);
             if (reportErrors) {
@@ -647,6 +650,7 @@ class TwitterClient {
           final payload = json.decode(response.body);
           if (payload is! Map<String, dynamic>) {
             if (reportErrors) {
+              PrivacyDiagnostics.instance.record(DiagnosticEvent.searchInvalidResponse);
               throw StateError('La réponse de recherche X est invalide.');
             }
             return TweetResponse(tweets: []);
@@ -666,6 +670,7 @@ class TwitterClient {
               payload['data']?['search_by_raw_query']?['search_timeline'];
           if (timeline is! Map<String, dynamic>) {
             if (reportErrors) {
+              PrivacyDiagnostics.instance.record(DiagnosticEvent.searchInvalidResponse);
               throw StateError('La structure des résultats de recherche X '
                   'a changé (timeline absente).');
             }

@@ -73,6 +73,25 @@ enum DiagnosticEvent {
   feedReserveEmpty,
   searchCancelled,
   searchTimeout,
+  searchNativeUnavailable,
+  searchNativeEmpty,
+  searchPublicUnavailable,
+  searchPublicEmpty,
+  searchHttpAuth,
+  searchHttpRateLimit,
+  searchHttpUnavailable,
+  searchHttpOther,
+  searchInvalidResponse,
+  searchNetworkError,
+  discoveryNativeEmpty,
+  discoveryPublicUnavailable,
+  discoveryTopicCount,
+  discoveryCandidatesRejected,
+  discoveryProfileFallback,
+  discoveryCacheFallback,
+  feedReserveAtTarget,
+  feedReserveBelowTarget,
+  feedRequestTimeout,
   updateCheckStarted,
   updateCheckCompleted,
   updateCheckFailed,
@@ -139,6 +158,27 @@ class PrivacyDiagnostics extends ChangeNotifier {
   SharedPreferences? _prefs;
   Timer? _maintenance;
   Timer? _pendingWrite;
+  Future<void> _writeTail = Future<void>.value();
+
+  /// Capture exactly the entries included in the JSON. Entries arriving
+  /// while Android saves the file belong to the next export.
+  Future<String> downloadAndClear(Future<String> Function(String) save) async {
+    _prune(_clock());
+    final exported = _entries.toSet();
+    final evictionCount = _evictions.length;
+    final capturedAt = _clock();
+    final report = snapshot();
+    final location = await save(report);
+    _entries.removeWhere(exported.contains);
+    for (var i = 0; i < evictionCount && _evictions.isNotEmpty; i++) {
+      if (_evictions.first > capturedAt) break;
+      _evictions.removeFirst();
+    }
+    _startedAt = capturedAt;
+    notifyListeners();
+    await flush();
+    return location;
+  }
 
   bool get isRecording => true;
   int get eventCount {
@@ -229,18 +269,22 @@ class PrivacyDiagnostics extends ChangeNotifier {
     final prefs = _prefs;
     if (prefs == null) return;
     _prune(_clock());
-    try {
-      await prefs.setString(_storageKey, jsonEncode([
+    final payload = jsonEncode([
         for (final e in _entries) {
           't': e.elapsedMs,
           'event': e.event.name,
           if (e.countBucket != null) 'count_bucket': e.countBucket,
           if (e.durationBucket != null) 'duration_bucket': e.durationBucket,
         }
-      ]));
-    } catch (_) {
-      // Keep the in-memory journal usable if storage is unavailable.
-    }
+      ]);
+    _writeTail = _writeTail.then((_) async {
+      try {
+        await prefs.setString(_storageKey, payload);
+      } catch (_) {
+        // Keep the in-memory journal usable if storage is unavailable.
+      }
+    });
+    await _writeTail;
   }
 
   void record(DiagnosticEvent event, {int? resultCount, int? durationMs}) {
@@ -272,7 +316,7 @@ class PrivacyDiagnostics extends ChangeNotifier {
     }
     return const JsonEncoder.withIndent('  ').convert({
       'format': 'twit_vid_anonymous_diagnostics_v1',
-      'app_version': '0.32.0',
+      'app_version': '0.33.0',
       'window_seconds': 300,
       'elapsed_seconds': ((now - origin).clamp(0, windowMs)) ~/ 1000,
       'event_count': _entries.length,
@@ -309,4 +353,16 @@ class PrivacyDiagnostics extends ChangeNotifier {
     _pendingWrite?.cancel();
     super.dispose();
   }
+}
+
+/// Convert only numeric HTTP status to a fixed category. No error message,
+/// request path, account, query or payload may enter the diagnostic journal.
+void recordSearchHttpStatus(int status) {
+  final event = switch (status) {
+    401 || 403 => DiagnosticEvent.searchHttpAuth,
+    429 => DiagnosticEvent.searchHttpRateLimit,
+    500 || 502 || 503 || 504 => DiagnosticEvent.searchHttpUnavailable,
+    _ => DiagnosticEvent.searchHttpOther,
+  };
+  PrivacyDiagnostics.instance.record(event);
 }

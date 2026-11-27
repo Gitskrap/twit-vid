@@ -90,7 +90,7 @@ La génération **release** demande les informations de signature privée config
 
 ## Tester le fonctionnement avec un rapport anonyme
 
-À partir de **0.31.0**, ouvre **Paramètres → Diagnostic anonyme → Télécharger le diagnostic récent**. Le journal fonctionne automatiquement et chaque export contient les cinq dernières minutes. Tu peux consulter le rapport ou effacer le journal sans arrêter la collecte.
+À partir de **0.33.0**, ouvre **Paramètres → Diagnostic anonyme → Télécharger le diagnostic récent**. Le journal fonctionne automatiquement et chaque export contient les cinq dernières minutes. Le JSON est enregistré directement dans Téléchargements sur Android 10+, sans sélecteur. Les événements exportés sont effacés après sauvegarde réussie, les nouveaux événements restent enregistrés.
 
 **La collecte technique anonyme est automatique et locale.** Le journal récent est conservé sur le téléphone pour les redémarrages et les événements expirés sont retirés. Le journal exporté est séparé des logs techniques bruts ; il contient uniquement un nombre limité d'événements issus d'une liste fermée, des durées relatives à la fenêtre exportée et des quantités regroupées en tranches. Il ne contient **aucun identifiant ni hash** de publication/vidéo/compte, aucun abonnement, hashtag, texte saisi, URL, message d'erreur brut, cookie, token ou horodatage absolu. Aucune donnée n'est envoyée automatiquement : toi seul choisis si et comment partager le rapport. Les détails techniques non anonymisés visibles dans les anciens logs ne doivent pas être partagés.
 

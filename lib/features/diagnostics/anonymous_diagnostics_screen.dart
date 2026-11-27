@@ -46,16 +46,24 @@ class _AnonymousDiagnosticsScreenState extends State<AnonymousDiagnosticsScreen>
 
   Future<void> _share() async {
     if (_sharing) return;
-    final report = _diagnostics.snapshot();
     setState(() {
       _sharing = true;
       _error = null;
-      _preview = report;
     });
     try {
-      await _shareChannel.invokeMethod<void>('shareReport', {'json': report});
+      final location = await _diagnostics.downloadAndClear((report) async {
+        final saved = await _shareChannel.invokeMethod<String>('downloadReport', {'json': report});
+        if (saved == null || saved.isEmpty) throw StateError('Download not confirmed');
+        return saved;
+      });
+      if (mounted) {
+        setState(() => _preview = null);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Enregistré : $location. Journal exporté effacé.'),
+        ));
+      }
     } catch (_) {
-      if (mounted) setState(() => _error = 'Partage impossible.');
+      if (mounted) setState(() => _error = 'Téléchargement impossible. Journal conservé.');
     } finally {
       if (mounted) setState(() => _sharing = false);
     }
@@ -77,7 +85,8 @@ class _AnonymousDiagnosticsScreenState extends State<AnonymousDiagnosticsScreen>
           const Text(
             'Les événements techniques sont enregistrés automatiquement. '
             'Chaque export contient les cinq dernières minutes, '
-            'sans interrompre l’enregistrement.',
+            'puis efface les événements sauvegardés. Les nouveaux événements '
+            'continuent d’être enregistrés automatiquement.',
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 20),
@@ -87,12 +96,12 @@ class _AnonymousDiagnosticsScreenState extends State<AnonymousDiagnosticsScreen>
           FilledButton.icon(
             onPressed: _sharing ? null : _share,
             icon: const Icon(Icons.download),
-            label: Text(_sharing ? 'Ouverture du partage…' :
+            label: Text(_sharing ? 'Téléchargement…' :
                 'Télécharger les 5 dernières minutes'),
           ),
           const SizedBox(height: 8),
           OutlinedButton.icon(
-            onPressed: () => setState(() => _preview = _diagnostics.snapshot()),
+            onPressed: _sharing ? null : () => setState(() => _preview = _diagnostics.snapshot()),
             icon: const Icon(Icons.visibility_outlined),
             label: const Text('Afficher le rapport actuel'),
           ),
