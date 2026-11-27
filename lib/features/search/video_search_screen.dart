@@ -130,35 +130,52 @@ class _VideoSearchScreenState extends ConsumerState<VideoSearchScreen> {
       Future<TweetResponse> publicSearch() async {
         try {
           final handle = RegExp(r'^@([A-Za-z0-9_]{1,15})$').firstMatch(text)?.group(1);
-          if (handle != null) {
-            return await PublicXClient().userVideos(handle, cursor: more ? cursor : null, count: 30)
-                .timeout(const Duration(seconds: 12));
+          final public = PublicXClient();
+          final result = await (handle != null
+              ? public.userVideos(handle, cursor: more ? cursor : null, count: 30)
+              : public.searchVideos(text, cursor: more ? cursor : null,
+                  count: 30, top: _sort == FeedSort.trending || _sort == FeedSort.popular))
+              .timeout(const Duration(seconds: 12));
+          if (result.tweets.isEmpty) {
+            PrivacyDiagnostics.instance.record(DiagnosticEvent.searchPublicEmpty);
           }
-          final result = await PublicXClient().searchVideos(
-        text,
-        cursor: more ? cursor : null,
-        count: 30,
-        top: _sort == FeedSort.trending || _sort == FeedSort.popular,
-      ).timeout(const Duration(seconds: 12));
+          return result;
+        } catch (_) {
+          PrivacyDiagnostics.instance.record(DiagnosticEvent.searchPublicUnavailable);
+          rethrow;
+        }
+      }
       if (usePublic) {
         response = await publicSearch();
       } else {
         try {
-          response = await ref.read(twitterClientProvider).fetchTrendingMedia(
-            query: text,
-            sort: _sort,
-            filters: const {MediaFilter.video},
-            cursor: more ? cursor : null,
-            count: 30,
-            timeoutSeconds: 12,
-            reportErrors: true,
+          final client = ref.read(twitterClientProvider);
+          response = await client.fetchTrendingMedia(
+            query: text, sort: _sort, filters: const {MediaFilter.video},
+            cursor: more ? cursor : null, count: 30,
+            timeoutSeconds: 12, reportErrors: true,
           ).timeout(const Duration(seconds: 14));
           if (!more && videoSearchResults(response.tweets).isEmpty) {
-            usePublic = true;
-            response = await publicSearch();
+            PrivacyDiagnostics.instance.record(DiagnosticEvent.searchNativeEmpty);
+            if (_sort != FeedSort.latest) {
+              response = await client.fetchTrendingMedia(
+                query: text, sort: FeedSort.latest, filters: const {MediaFilter.video},
+                count: 30, timeoutSeconds: 9, reportErrors: true,
+              ).timeout(const Duration(seconds: 11));
+              if (response.tweets.isNotEmpty && mounted && _searchVersion == requestVersion) {
+                setState(() => _sort = FeedSort.latest);
+              }
+            }
           }
         } catch (error) {
-          debugPrint('X authenticated search failed, trying public: $error');
+          PrivacyDiagnostics.instance.record(DiagnosticEvent.searchNativeUnavailable);
+          if (!mounted || _searchVersion != requestVersion) return;
+          // A cursor belongs to its originating source.
+          if (more) rethrow;
+          usePublic = true;
+          response = await publicSearch();
+        }
+        if (!usePublic && !more && videoSearchResults(response.tweets).isEmpty) {
           usePublic = true;
           response = await publicSearch();
         }
@@ -209,6 +226,10 @@ class _VideoSearchScreenState extends ConsumerState<VideoSearchScreen> {
       if (!mounted || _searchVersion != requestVersion) return;
       if (error is TimeoutException) {
         PrivacyDiagnostics.instance.record(DiagnosticEvent.searchTimeout);
+      } else if (error is FormatException) {
+        PrivacyDiagnostics.instance.record(DiagnosticEvent.searchInvalidResponse);
+      } else if (error is! PublicXHttpException && error is! StateError) {
+        PrivacyDiagnostics.instance.record(DiagnosticEvent.searchNetworkError);
       }
       if (!more) {
         try {
@@ -240,8 +261,8 @@ class _VideoSearchScreenState extends ConsumerState<VideoSearchScreen> {
       PrivacyDiagnostics.instance.record(DiagnosticEvent.searchFailed);
       if (mounted) {
         setState(() => _error =
-          'Recherche en ligne indisponible. Vérifie la connexion ou '
-          'essaie de nouveau : $error');
+          'Recherche en ligne indisponible. Essaie un profil @compte, '
+          'un hashtag déjà consulté ou réessaie plus tard.');
       }
     } finally {
       if (mounted && _searchVersion == requestVersion) {

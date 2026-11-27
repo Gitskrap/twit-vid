@@ -439,6 +439,7 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
 
   @override
   FutureOr<FeedState> build() async {
+    ref.keepAlive(); // Keep the video queue when visiting another tab.
     final settings = ref.watch(settingsProvider);
     if (!settings.isInitialized) {
       return FeedState(tweets: [], isRefreshing: true);
@@ -521,9 +522,19 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
       selected = cachedVideosMatchingTopics(pool, topics);
     } else {
       final local = onlyLocalSubscriptionVideos(pool, allowedHandles);
-      // Keep subscription candidates available. Discoveries are fetched and
-      // mixed separately rather than exposing arbitrary past searches.
-      selected = local;
+      if (settings.suggestSimilarVideos) {
+        final topics = personalizedVideoTopics(local, reactions, limit: 12,
+          followedHashtags: ref.read(hashtagListProvider).value ?? const <String>[],
+          watchedVideos: await Repository.getMeaningfullyWatchedVideos(),
+          blockedHashtags: blockedHashtags);
+        final cached = await Repository.getCachedMediaCandidates(200,
+          avoidWatchedContent: true, filters: const {MediaFilter.video});
+        final related = cachedVideosMatchingTopics(cached, topics).where((v) =>
+          !allowedHandles.contains(v.userHandle.replaceFirst('@', '').toLowerCase())).toList();
+        selected = mixRelatedVideos(local, related);
+      } else {
+        selected = local;
+      }
     }
     return filterByFeedback(selected, reactions,
         blockedHashtags: blockedHashtags)
@@ -925,7 +936,8 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
           if (response.tweets.isEmpty && !publicFallbackAttempted) {
             publicFallbackAttempted = true;
             final publicResponse =
-                await _fetchPublicSubscriptions(settings.loadBatchSize);
+                await _fetchPublicSubscriptions(settings.loadBatchSize).timeout(
+                    const Duration(seconds: 18), onTimeout: () => TweetResponse(tweets: []));
             if (publicResponse.tweets.isNotEmpty) {
               effectiveResponse = publicResponse;
             }
@@ -963,6 +975,7 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
             await Future.delayed(const Duration(milliseconds: 300));
           }
         } catch (e) {
+          if (e is TimeoutException) PrivacyDiagnostics.instance.record(DiagnosticEvent.feedRequestTimeout);
           AppLogger.log('XFLOW: fetchMore API error: $e');
           apiRetries++;
           await Future.delayed(const Duration(seconds: 1));
