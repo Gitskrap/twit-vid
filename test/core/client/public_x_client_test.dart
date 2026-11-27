@@ -120,6 +120,22 @@ void main() {
     expect(tweets.first.favoriteCountKnown, true);
   });
 
+  test('public search unavailable backs off and profile lookup still works', () async {
+    var searches = 0;
+    final client = PublicXClient(client: MockClient((request) async {
+      if (request.url.path == '/2/search') {
+        searches++;
+        return http.Response('{"code":503}', 503);
+      }
+      expect(request.url.path, '/2/profile/example/media');
+      return http.Response('{"code":200,"results":[]}', 200);
+    }));
+    await expectLater(client.searchVideos('test'), throwsA(isA<PublicXHttpException>()));
+    await expectLater(client.searchVideos('test'), throwsA(isA<PublicXHttpException>()));
+    expect(searches, 1);
+    expect((await client.userVideos('example')).tweets, isEmpty);
+  });
+
   test('empty public video pages are distinct from malformed responses', () {
     expect(PublicXClient.decodeMediaResults({'results': []}), isEmpty);
     expect(

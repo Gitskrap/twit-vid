@@ -19,6 +19,7 @@ class PublicXHttpException implements Exception {
 class PublicXClient {
   static const _host = 'api.fxtwitter.com';
   static DateTime? _searchRetryAfter;
+  static int _searchCooldownStatus = 503;
 
   static bool get searchCoolingDown => _searchRetryAfter != null &&
       DateTime.now().isBefore(_searchRetryAfter!);
@@ -201,7 +202,7 @@ class PublicXClient {
     }
     final filtered = text.contains('filter:videos')
         ? text : '$text filter:videos';
-    if (searchCoolingDown) throw const PublicXHttpException(503);
+    if (searchCoolingDown) throw PublicXHttpException(_searchCooldownStatus);
     late Map<String, dynamic> body;
     try {
       body = await _get(Uri.https(_host, '/2/search', {
@@ -212,6 +213,7 @@ class PublicXClient {
     }));
     } on PublicXHttpException catch (error) {
       if (error.status == 503 || error.status == 429) {
+        _searchCooldownStatus = error.status;
         _searchRetryAfter = DateTime.now().add(const Duration(minutes: 10));
       }
       recordSearchHttpStatus(error.status);

@@ -113,6 +113,21 @@ void main() {
     expect(report()['summary']['tabLiked'], 1);
   });
 
+  test('successful export clears persistent storage across restart', () async {
+    SharedPreferences.setMockInitialValues({});
+    await recorder.initialize();
+    recorder.record(DiagnosticEvent.tabVideos);
+    await recorder.flush();
+    await recorder.downloadAndClear((_) async => 'Downloads/report.json');
+    final restarted = PrivacyDiagnostics.forTest(() => now);
+    try {
+      await restarted.initialize();
+      expect(restarted.eventCount, 0);
+    } finally {
+      restarted.dispose();
+    }
+  });
+
   test('failed download retains all events', () async {
     recorder.record(DiagnosticEvent.tabVideos);
     await expectLater(recorder.downloadAndClear((_) async {
