@@ -22,7 +22,7 @@ List<Tweet> appendFreshVideos(
       .toSet();
 
   var added = 0;
-  for (final candidate in candidates) {
+  for (final candidate in diversifyAuthors(candidates, previous: output)) {
     if (!candidate.isVideo || candidate.mediaUrls.isEmpty ||
         (candidate.durationMs != null && candidate.durationMs! <= 15000) ||
         viewedIds.contains(candidate.id) || ids.contains(candidate.id)) {
@@ -85,4 +85,36 @@ bool dislikeAdvancedToAnotherVideo(
   if (after.any((tweet) => tweet.id == rejectedId)) return false;
   final index = originalIndex.clamp(0, after.length - 1);
   return after[index].id != rejectedId;
+}
+
+/// Reorder new candidates only. Prefer authors not shown in the last four
+/// slots; if supply is narrow, retain playable videos rather than starve.
+List<Tweet> diversifyAuthors(Iterable<Tweet> candidates, {
+  Iterable<Tweet> previous = const <Tweet>[],
+}) {
+  String author(Tweet t) => t.userHandle.replaceFirst('@', '').toLowerCase();
+  final remaining = candidates.toList();
+  final result = <Tweet>[];
+  final recent = previous.toList().reversed.take(6).toList().reversed
+      .map(author).toList();
+  while (remaining.isNotEmpty) {
+    var best = 0;
+    var bestPenalty = 100000;
+    for (var i = 0; i < remaining.length; i++) {
+      final a = author(remaining[i]);
+      final count = recent.where((v) => v == a).length;
+      final adjacent = recent.isNotEmpty && recent.last == a ? 10 : 0;
+      final penalty = count * 3 + adjacent;
+      if (penalty < bestPenalty) {
+        best = i;
+        bestPenalty = penalty;
+        if (penalty == 0) break;
+      }
+    }
+    final chosen = remaining.removeAt(best);
+    result.add(chosen);
+    recent.add(author(chosen));
+    if (recent.length > 6) recent.removeAt(0);
+  }
+  return result;
 }

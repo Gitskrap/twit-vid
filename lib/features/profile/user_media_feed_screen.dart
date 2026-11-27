@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/navigation/navigation_provider.dart';
 import '../player/player_pool_provider.dart';
+import '../cast/cast_video_button.dart';
 import 'profile_provider.dart';
 import '../player/widgets/media_container.dart';
 import '../../core/models/tweet.dart';
@@ -59,6 +60,9 @@ class _UserMediaFeedScreenState extends ConsumerState<UserMediaFeedScreen> {
       final feedAsync = ref.read(userMediaNotifierProvider(widget.screenName));
       if (feedAsync.hasValue) {
         final tweets = feedAsync.value!.tweets;
+        if (page >= 0 && page < tweets.length) {
+          ref.read(activeCastTweetProvider.notifier).selectFromPhone(tweets[page], tweets);
+        }
         final settings = ref.read(settingsProvider);
         if (page >= tweets.length - settings.lazyLoadThreshold &&
             !feedAsync.value!.isLoadingMore) {
@@ -78,6 +82,7 @@ class _UserMediaFeedScreenState extends ConsumerState<UserMediaFeedScreen> {
       final state = feedAsync.value;
       if (state == null) return;
       final tweets = state.tweets;
+      ref.read(castPlaylistProvider.notifier).setQueue(tweets);
 
       final pool = ref.read(playerPoolProvider.notifier);
       final activeIds = <String>{};
@@ -103,6 +108,12 @@ class _UserMediaFeedScreenState extends ConsumerState<UserMediaFeedScreen> {
   @override
   Widget build(BuildContext context) {
     final feedAsync = ref.watch(userMediaNotifierProvider(widget.screenName));
+    ref.listen(activeCastTweetProvider, (previous, next) {
+      if (next == null || previous == next) return;
+      final items = ref.read(userMediaNotifierProvider(widget.screenName)).value?.tweets ?? const <Tweet>[];
+      final index = items.indexWhere((v) => v.id == next);
+      if (index >= 0 && _pageController.hasClients) _pageController.jumpToPage(index);
+    });
 
     // Listen for data arrival to handle initial index adjustment if list shifted
     ref.listen(userMediaNotifierProvider(widget.screenName), (prev, next) {

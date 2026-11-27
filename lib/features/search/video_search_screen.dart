@@ -57,6 +57,9 @@ class _VideoSearchScreenState extends ConsumerState<VideoSearchScreen> {
 
   @override
   void dispose() {
+    if (_isLoading || _loadingMore) {
+      PrivacyDiagnostics.instance.record(DiagnosticEvent.searchCancelled);
+    }
     _searchVersion++;
     _input.dispose();
     _focus.dispose();
@@ -70,7 +73,13 @@ class _VideoSearchScreenState extends ConsumerState<VideoSearchScreen> {
     final text = more ? _query : normalizeVideoSearch(_input.text);
     if (text.isEmpty) {
       if (!more) {
+        if (_isLoading || _loadingMore) {
+          PrivacyDiagnostics.instance.record(DiagnosticEvent.searchCancelled);
+        }
+        _searchVersion++;
         setState(() {
+          _isLoading = false;
+          _loadingMore = false;
           _query = '';
           _results = [];
           _cursor = null;
@@ -85,6 +94,9 @@ class _VideoSearchScreenState extends ConsumerState<VideoSearchScreen> {
     if (more) {
       setState(() => _loadingMore = true);
     } else {
+      if (_isLoading || _loadingMore) {
+        PrivacyDiagnostics.instance.record(DiagnosticEvent.searchCancelled);
+      }
       _searchVersion++;
       _focus.unfocus();
       ref.read(videoUiHiddenProvider.notifier).show();
@@ -98,6 +110,7 @@ class _VideoSearchScreenState extends ConsumerState<VideoSearchScreen> {
         _usingCachedSearch = false;
         _index = 0;
         _isLoading = true;
+        _loadingMore = false;
         _error = null;
       });
     }
@@ -119,7 +132,7 @@ class _VideoSearchScreenState extends ConsumerState<VideoSearchScreen> {
         cursor: more ? cursor : null,
         count: 30,
         top: _sort == FeedSort.trending || _sort == FeedSort.popular,
-      );
+      ).timeout(const Duration(seconds: 12));
       if (usePublic) {
         response = await publicSearch();
       } else {
@@ -130,9 +143,9 @@ class _VideoSearchScreenState extends ConsumerState<VideoSearchScreen> {
             filters: const {MediaFilter.video},
             cursor: more ? cursor : null,
             count: 30,
-            timeoutSeconds: 20,
+            timeoutSeconds: 12,
             reportErrors: true,
-          );
+          ).timeout(const Duration(seconds: 14));
           if (!more && videoSearchResults(response.tweets).isEmpty) {
             usePublic = true;
             response = await publicSearch();
@@ -155,6 +168,7 @@ class _VideoSearchScreenState extends ConsumerState<VideoSearchScreen> {
           .where((tweet) => reactions?[tweet.id]?.value != -1).toList();
         cacheOnly = videos.isNotEmpty;
       }
+      if (!mounted || _searchVersion != requestVersion) return;
       final knownIds = _results.map((tweet) => tweet.id).toSet();
       final additional = videos.where((tweet) => !knownIds.contains(tweet.id));
       setState(() {
@@ -186,6 +200,9 @@ class _VideoSearchScreenState extends ConsumerState<VideoSearchScreen> {
       _warmupPlayers();
     } catch (error) {
       if (!mounted || _searchVersion != requestVersion) return;
+      if (error is TimeoutException) {
+        PrivacyDiagnostics.instance.record(DiagnosticEvent.searchTimeout);
+      }
       if (!more) {
         try {
           final local = await Repository.getHashtagCachedMedia(
@@ -234,6 +251,7 @@ class _VideoSearchScreenState extends ConsumerState<VideoSearchScreen> {
     ref.read(videoUiHiddenProvider.notifier).show();
 
     if (next >= 0 && next < _results.length) {
+      ref.read(activeCastTweetProvider.notifier).selectFromPhone(_results[next], _results);
       unawaited(Repository.markMediaAsPlayed(_results[next].id));
     }
     _warmupPlayers();
@@ -290,6 +308,14 @@ class _VideoSearchScreenState extends ConsumerState<VideoSearchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(activeCastTweetProvider, (previous, next) {
+      if (next == null || previous == next) return;
+      final index = _results.indexWhere((v) => v.id == next);
+      if (index >= 0 && _pageController.hasClients) {
+        _pageController.jumpToPage(index);
+        PrivacyDiagnostics.instance.record(DiagnosticEvent.castPhoneAligned);
+      }
+    });
     final hideUi = ref.watch(videoUiHiddenProvider);
     final account = ref.watch(accountProvider);
     final signedIn = TwitterAccount.hasAuthSession(account);
@@ -327,6 +353,9 @@ class _VideoSearchScreenState extends ConsumerState<VideoSearchScreen> {
                     }
                     if (_hasMore && _results.length - _index < 4) {
                       unawaited(_runSearch(more: true));
+                    }
+                    if (_index < _results.length) {
+                      ref.read(activeCastTweetProvider.notifier).selectFromPhone(_results[_index], _results);
                     }
                     _warmupPlayers();
                   },

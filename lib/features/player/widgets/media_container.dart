@@ -18,6 +18,8 @@ import '../../feed/persistent_fullscreen_provider.dart';
 import '../../diagnostics/privacy_diagnostics.dart';
 import '../video_ui_provider.dart';
 import 'video_seek_bar.dart';
+import '../../cast/cast_video_button.dart';
+import '../../cast/cast_remote_controls.dart';
 
 class TiktokMediaContainer extends ConsumerStatefulWidget {
   final Tweet tweet;
@@ -199,7 +201,7 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer> {
   }
 
   void _handleCompleted() async {
-    if (!mounted || !widget.isVisible) return;
+    if (!mounted || !widget.isVisible || ref.read(activeCastTweetProvider) != null) return;
     PrivacyDiagnostics.instance.record(DiagnosticEvent.videoPlaybackCompleted);
 
     // Exit fullscreen if active when video completes
@@ -227,7 +229,8 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer> {
   }
 
   Future<void> _handleError(dynamic error) async {
-    if (!mounted || !widget.isVisible || _retryInFlight || _failureReported ||
+    if (!mounted || !widget.isVisible || ref.read(activeCastTweetProvider) != null ||
+        _retryInFlight || _failureReported ||
         _shortSkipped) return;
     final player = _subscribedPlayer;
     final id = widget.tweet.id;
@@ -299,6 +302,38 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer> {
 
     final pool = ref.watch(playerPoolProvider);
     final instance = pool[widget.tweet.id];
+    final cast = ref.watch(activeCastTweetProvider);
+    if (cast != null && cast != '__diagnostic__') {
+      _startupTimer?.cancel();
+      _startupClock = null;
+      _durationValidationTimer?.cancel();
+      _durationValidationTimer = null;
+      if (instance?.player.state.playing == true) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) unawaited(instance!.player.pause());
+        });
+      }
+      final isCurrentCast = cast == widget.tweet.id;
+      return Stack(fit: StackFit.expand, children: [
+        const ColoredBox(color: Colors.black),
+        if (widget.tweet.thumbnailUrl?.isNotEmpty == true)
+          CachedNetworkImage(imageUrl: widget.tweet.thumbnailUrl!,
+              fit: BoxFit.contain,
+              errorWidget: (_, _, _) => const SizedBox.shrink()),
+        if (!isCurrentCast)
+          const Center(child: Text('Synchronisation Chromecast…')),
+        if (widget.isVisible && isCurrentCast) ...[
+          if (widget.overlayBuilder != null)
+            Positioned.fill(child: widget.overlayBuilder!(context, null, false)),
+          Positioned(
+            left: 8, right: 8,
+            bottom: MediaQuery.paddingOf(context).bottom + 6,
+            child: CastRemoteControls(key: ValueKey(cast),
+              fallbackDurationMs: widget.tweet.durationMs),
+          ),
+        ],
+      ]);
+    }
 
     if (instance == null) {
       return const Center(child: CircularProgressIndicator());

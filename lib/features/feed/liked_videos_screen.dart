@@ -202,11 +202,10 @@ class _LikedVideoPlayerState extends ConsumerState<_LikedVideoPlayer> {
       }
     });
     ref.listen(activeCastTweetProvider, (previous, next) {
-      if (previous == null || next == null || previous == next) return;
+      if (next == null || previous == next) return;
       final index = widget.videos.indexWhere((v) => v.id == next);
       if (index >= 0 && _pages.hasClients) _pages.jumpToPage(index);
     });
-    final cast = ref.watch(activeCastTweetProvider);
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(title: const Text('Mes J’aime')),
@@ -216,13 +215,14 @@ class _LikedVideoPlayerState extends ConsumerState<_LikedVideoPlayer> {
         itemCount: widget.videos.length,
         onPageChanged: (i) {
           setState(() => _index = i);
+          ref.read(activeCastTweetProvider.notifier).selectFromPhone(widget.videos[i], widget.videos);
           _schedulePool();
         },
         itemBuilder: (context, index) {
           final video = widget.videos[index];
           return TiktokMediaContainer(
             key: ValueKey(video.id), tweet: video,
-            isVisible: index == _index && cast != video.id,
+            isVisible: index == _index,
             onPlaybackError: () => _advance(index),
             onDislike: () => _advance(index),
             overlayBuilder: (context, fullscreen, isFullscreen) => TweetTextOverlay(

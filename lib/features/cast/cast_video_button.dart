@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_chrome_cast/flutter_chrome_cast.dart';
 
 import '../../core/models/tweet.dart';
+import '../../core/navigation/navigation_provider.dart';
 import '../feed/feed_provider.dart';
 import '../feed/local_recommendation_profile.dart';
 import '../feed/local_video_reactions_provider.dart';
@@ -48,6 +49,38 @@ class ActiveCastTweetNotifier extends Notifier<String?> {
   int? _currentMediaSessionId;
   bool _advancing = false;
   bool _stoppedByUser = false;
+  bool _loading = false;
+  bool _homePlaylist = false;
+  Tweet? _pendingSelection;
+  bool _confirmedPlaying = false;
+  int _selectionGeneration = 0;
+
+  /// The visible page is the remote control while a Cast session is active.
+  void selectFromPhone(Tweet tweet, List<Tweet> queue) {
+    if (_activeDevice == null || _stoppedByUser || !tweet.isVideo ||
+        tweet.mediaUrls.isEmpty || state == tweet.id) return;
+    _playlist = List<Tweet>.from(queue);
+    final nav = ref.read(navigationProvider);
+    _homePlaylist = nav.currentTab == MainTab.media && !nav.isVideoSearchOpen &&
+        nav.selectedUser == null && nav.selectedHashtag == null;
+    _selectionGeneration++;
+    _pendingSelection = tweet;
+    PrivacyDiagnostics.instance.record(DiagnosticEvent.castPhoneSelection);
+    unawaited(_drainSelection());
+  }
+
+  Future<void> _drainSelection() async {
+    if (_loading || _advancing || _stoppedByUser) return;
+    final next = _pendingSelection;
+    final device = _activeDevice;
+    if (next == null || device == null) return;
+    _pendingSelection = null;
+    try {
+      await play(next, device, quality: _activeQuality, automatic: true);
+    } catch (_) {
+      PrivacyDiagnostics.instance.record(DiagnosticEvent.castPhoneSelectionFailed);
+    }
+  }
 
   /// Public Google-hosted MP4 for distinguishing connection failures from
   /// failures specific to Twitter's CDN, permissions or codecs.
@@ -97,8 +130,17 @@ class ActiveCastTweetNotifier extends Notifier<String?> {
     CastQualityMode quality = CastQualityMode.auto,
     bool automatic = false,
   }) async {
+    if (_loading) throw StateError('Un chargement Cast est déjà en cours.');
+    _loading = true;
+    _confirmedPlaying = false;
+    _currentMediaSessionId = null;
+    try {
     PrivacyDiagnostics.instance.record(DiagnosticEvent.castPlayStarted);
     if (!automatic) {
+      final nav = ref.read(navigationProvider);
+      _homePlaylist = nav.currentTab == MainTab.media && !nav.isVideoSearchOpen &&
+          nav.selectedUser == null && nav.selectedHashtag == null;
+      _pendingSelection = null;
       _stoppedByUser = false;
       _castSessionIds.clear();
       final latestQueue = ref.read(castPlaylistProvider);
@@ -143,6 +185,10 @@ class ActiveCastTweetNotifier extends Notifier<String?> {
       '(${candidates.length} qualité(s) testée(s)). '
       'Dernière erreur : $lastError',
     );
+    } finally {
+      _loading = false;
+      if (ref.mounted) unawaited(_drainSelection());
+    }
   }
 
   Future<void> playTest(GoogleCastDevice device) async {
@@ -158,26 +204,26 @@ class ActiveCastTweetNotifier extends Notifier<String?> {
   void _watchPlaybackCompletion() {
     _mediaSubscription ??=
       GoogleCastRemoteMediaClient.instance.mediaStatusStream.listen((status) {
-        if (_stoppedByUser || _advancing || state == null ||
+        if (_loading || _stoppedByUser || _advancing || state == null ||
             state == '__diagnostic__' || status == null) return;
-        if (status.playerState == CastMediaPlayerState.playing) {
-          _currentMediaSessionId = status.mediaSessionID;
-          return;
-        }
+        if (status.mediaSessionID != _currentMediaSessionId ||
+            !_confirmedPlaying) return;
+        if (status.playerState == CastMediaPlayerState.playing) return;
         if (status.playerState.name.toLowerCase() != 'idle' ||
             status.idleReason?.name.toLowerCase() != 'finished') return;
-        if (_currentMediaSessionId != null &&
-            status.mediaSessionID != _currentMediaSessionId) return;
+        _confirmedPlaying = false; // consume this finish exactly once
         PrivacyDiagnostics.instance.record(DiagnosticEvent.castVideoFinished);
         _advancing = true;
         unawaited(_playNextAutomatically().whenComplete(() {
           _advancing = false;
+          if (ref.mounted) unawaited(_drainSelection());
         }));
       });
   }
 
   Future<void> _playNextAutomatically() async {
     PrivacyDiagnostics.instance.record(DiagnosticEvent.castAutoNextStarted);
+    final generation = _selectionGeneration;
     final finishedId = state;
     final device = _activeDevice;
     if (finishedId == null || device == null || _stoppedByUser) return;
@@ -187,7 +233,7 @@ class ActiveCastTweetNotifier extends Notifier<String?> {
       _playlist = List<Tweet>.from(currentQueue);
     }
     var next = nextCastVideo(finishedId, _playlist, _castSessionIds);
-    if (next == null) {
+    if (next == null && _homePlaylist) {
       // Last clip: try to discover more videos in the app feed. Never loop
       // the finished clip, and never terminate the Cast session implicitly.
       try {
@@ -211,7 +257,8 @@ class ActiveCastTweetNotifier extends Notifier<String?> {
         debugPrint('Cast: no new videos could be loaded: $error');
       }
     }
-    if (next == null || !ref.mounted || _stoppedByUser) {
+    if (next == null || !ref.mounted || _stoppedByUser ||
+        generation != _selectionGeneration) {
       PrivacyDiagnostics.instance.record(DiagnosticEvent.castAutoNextEmpty);
       return;
     }
@@ -219,7 +266,8 @@ class ActiveCastTweetNotifier extends Notifier<String?> {
     final blocked = ref.read(hashtagBlacklistProvider).value ?? const <String>[];
     var candidate = next;
     var attempts = 0;
-    while (attempts < 4 && !_stoppedByUser && ref.mounted) {
+    while (attempts < 4 && !_stoppedByUser && ref.mounted &&
+        generation == _selectionGeneration) {
       attempts++;
       if (excludedByFeedback(candidate, reactions ?? const {},
           blockedHashtags: blocked)) {
@@ -321,7 +369,7 @@ class ActiveCastTweetNotifier extends Notifier<String?> {
 
     // loadMedia only acknowledges sending a request. Do not report success or
     // pause the local player until the receiver confirms real playback.
-    await client.mediaStatusStream
+    final confirmed = await client.mediaStatusStream
         .timeout(
           const Duration(seconds: 25),
           onTimeout: (sink) => sink.addError(
@@ -339,7 +387,7 @@ class ActiveCastTweetNotifier extends Notifier<String?> {
       final isNew = previousMediaSessionId == null ||
           status.mediaSessionID != previousMediaSessionId;
 
-      if (!matches && !isNew) return false;
+      if (!matches || !isNew) return false;
       if (status.idleReason == GoogleCastMediaIdleReason.error) {
         throw StateError(
           'Le Chromecast a refusé de lire la vidéo. '
@@ -351,13 +399,17 @@ class ActiveCastTweetNotifier extends Notifier<String?> {
       return status.playerState == CastMediaPlayerState.playing;
     });
 
-    _currentMediaSessionId = client.mediaStatus?.mediaSessionID;
+    _currentMediaSessionId = confirmed!.mediaSessionID;
+    _confirmedPlaying = true;
     state = tweetId ?? '__diagnostic__';
   }
 
   Future<void> stop() async {
     PrivacyDiagnostics.instance.record(DiagnosticEvent.castStopped);
     _stoppedByUser = true;
+    _confirmedPlaying = false;
+    _pendingSelection = null;
+    _selectionGeneration++;
     _mediaSubscription?.cancel();
     _mediaSubscription = null;
     _activeDevice = null;

@@ -59,6 +59,9 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
     final remaining = (feed.tweets.length - _currentIndex - 1).clamp(0, feed.tweets.length).toInt();
     if (remaining != _lastReserve) {
       _lastReserve = remaining;
+      final tail = feed.tweets.skip(_currentIndex + 1).take(20).toList();
+      PrivacyDiagnostics.instance.record(DiagnosticEvent.feedDistinctAuthors,
+          resultCount: tail.map((v) => v.userHandle.toLowerCase()).toSet().length);
       PrivacyDiagnostics.instance.record(DiagnosticEvent.feedReserveSample,
           resultCount: remaining);
     }
@@ -69,6 +72,9 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
       _pendingAdvanceId = null;
       _pageController.jumpToPage(_currentIndex + 1);
       return;
+    }
+    if (remaining == 0) {
+      PrivacyDiagnostics.instance.record(DiagnosticEvent.feedReserveEmpty);
     }
     if (!feed.isRefreshing && !feed.isLoadingMore && remaining < _reserveTarget) {
       unawaited(ref.read(feedNotifierProvider.notifier).fetchMore());
@@ -115,6 +121,7 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
         final tweets = feedAsync.value!.tweets;
 
         if (page < tweets.length) {
+          ref.read(activeCastTweetProvider.notifier).selectFromPhone(tweets[page], tweets);
           final id = tweets[page].id;
           if (_lastMarkedVideoId != id) {
             _lastMarkedVideoId = id;
@@ -201,10 +208,8 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
     });
     // Keep the phone's current item aligned when the television advances.
     ref.listen(activeCastTweetProvider, (previous, next) {
-      if (previous == null || next == null || previous == next) return;
-      final nav = ref.read(navigationProvider);
-      if (nav.currentTab != MainTab.media ||
-          nav.isVideoSearchOpen || nav.selectedHashtag != null) return;
+      if (next == null || previous == next) return;
+      if (!_feedActive()) return;
       final items = ref.read(feedNotifierProvider).value?.tweets ?? const <Tweet>[];
       final index = items.indexWhere((item) => item.id == next);
       if (index < 0) return;
@@ -212,6 +217,7 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
         if (!mounted || !_pageController.hasClients) return;
         _pageController.jumpToPage(index);
         setState(() => _currentIndex = index);
+        PrivacyDiagnostics.instance.record(DiagnosticEvent.castPhoneAligned);
       });
     });
     final account = ref.watch(accountProvider);
@@ -396,6 +402,9 @@ class _TiktokFeedScreenState extends ConsumerState<TiktokFeedScreen> {
                           ? DiagnosticEvent.dislikeAdvanceConfirmed
                           : DiagnosticEvent.dislikeAdvanceNoNext);
                     });
+                    if (index < after.length) {
+                      ref.read(activeCastTweetProvider.notifier).selectFromPhone(after[index], after);
+                    }
                     _maintainReserve();
                   },
                   onPlaybackError: () {
@@ -517,7 +526,6 @@ class TiktokFeedItem extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider);
-    final castedTweetId = ref.watch(activeCastTweetProvider);
     final videoUiHidden = ref.watch(videoUiHiddenProvider);
 
     return RepaintBoundary(
@@ -525,7 +533,7 @@ class TiktokFeedItem extends ConsumerWidget {
         children: [
           TiktokMediaContainer(
             tweet: tweet,
-            isVisible: isVisible && castedTweetId != tweet.id,
+            isVisible: isVisible,
             autoFullscreen: autoFullscreen,
             requireLongVideo: requireLongVideo,
             overlayBuilder: (context, onFullscreen, isFullscreen) =>

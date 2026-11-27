@@ -34,6 +34,15 @@ void main() {
         initial.map((v) => v.id));
   });
 
+  test('diversifies authors across the existing queue boundary', () {
+    final a = clip('a', '#Sport');
+    final b = clip('b', '#Sport');
+    final c = clip('c', '#Sport').copyWith(userHandle: '@other');
+    final d = clip('d', '#Sport').copyWith(userHandle: '@third');
+    final merged = appendFreshVideos([a], [b, c, d]);
+    expect(merged.map((v) => v.id), ['a', 'c', 'd', 'b']);
+  });
+
   test('excludes previously watched IDs across app sessions', () {
     final merged = appendFreshVideos(
       [clip('a', '#Nature')],

@@ -264,6 +264,9 @@ class _HashtagMediaFeedScreenState
       final feedAsync = ref.read(hashtagMediaProvider(widget.hashtag));
       if (feedAsync.hasValue) {
         final tweets = feedAsync.value!.tweets;
+        if (page >= 0 && page < tweets.length) {
+          ref.read(activeCastTweetProvider.notifier).selectFromPhone(tweets[page], tweets);
+        }
         final settings = ref.read(settingsProvider);
         if (page >= tweets.length - settings.lazyLoadThreshold &&
             !feedAsync.value!.isLoadingMore) {
@@ -303,6 +306,12 @@ class _HashtagMediaFeedScreenState
   @override
   Widget build(BuildContext context) {
     final feedAsync = ref.watch(hashtagMediaProvider(widget.hashtag));
+    ref.listen(activeCastTweetProvider, (previous, next) {
+      if (next == null || previous == next) return;
+      final items = ref.read(hashtagMediaProvider(widget.hashtag)).value?.tweets ?? const <Tweet>[];
+      final index = items.indexWhere((v) => v.id == next);
+      if (index >= 0 && _pageController.hasClients) _pageController.jumpToPage(index);
+    });
     final reactions = ref.watch(localVideoReactionsProvider).value;
 
     return Scaffold(

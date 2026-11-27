@@ -50,7 +50,7 @@ List<String> topicsFromSubscribedVideos(
 List<Tweet> mixRelatedVideos(
   List<Tweet> subscriptions,
   List<Tweet> recommendations, {
-  int interval = 3,
+  int interval = 1,
 }) {
   if (recommendations.isEmpty) return subscriptions;
   if (subscriptions.isEmpty) {
@@ -60,7 +60,7 @@ List<Tweet> mixRelatedVideos(
     return recommendations.where((video) =>
         video.isVideo && video.mediaUrls.isNotEmpty &&
         (video.durationMs == null || video.durationMs! > 15000) &&
-        seen.add(video.id)).take(12)
+        seen.add(video.id)).take(30)
         .map((video) => video.copyWith(source: 'Découverte')).toList();
   }
   final seen = subscriptions.map((t) => t.id).toSet();
