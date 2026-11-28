@@ -12,7 +12,6 @@ import '../../subscriptions/subscription_list_screen.dart';
 import 'package:flutter/foundation.dart';
 import '../local_video_reactions_provider.dart';
 import '../persistent_fullscreen_provider.dart';
-import '../../player/video_audio_provider.dart';
 import '../x_like_counter.dart';
 import '../tweet_detail_screen.dart';
 
@@ -43,7 +42,6 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
         : 94.0 + MediaQuery.paddingOf(context).bottom;
     final rightPadding = widget.isFullscreen ? 24.0 : 8.0;
 
-    final muted = ref.watch(videoMutedProvider);
     final immersive = ref.watch(persistentFullscreenProvider);
     return Stack(
       children: [
@@ -54,13 +52,7 @@ class _TweetTextOverlayState extends ConsumerState<TweetTextOverlay> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              IconButton.filledTonal(
-                tooltip: muted ? 'Activer le son' : 'Couper le son',
-                onPressed: () => ref.read(videoMutedProvider.notifier).toggle(),
-                icon: Icon(muted ? Icons.volume_off : Icons.volume_up),
-              ),
               if (widget.onFullscreen != null) ...[
-                const SizedBox(width: 4),
                 IconButton.filledTonal(
                   tooltip: immersive ? 'Quitter le plein écran'
                       : 'Rester en plein écran en changeant de vidéo',

@@ -43,17 +43,17 @@ jobs:
           printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/twitter-video-release.p12
           printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=twittervideo\nstoreFile=../twitter-video-release.p12\n' "$ANDROID_SIGNING_PASSWORD" "$ANDROID_SIGNING_PASSWORD" > android/key.properties
       - name: Build release ARM64
-        run: flutter build apk --release --target-platform android-arm64 --build-name 0.33.0 --build-number 33
+        run: flutter build apk --release --target-platform android-arm64 --build-name 0.34.0 --build-number 34
       - name: Name APK
-        run: cp build/app/outputs/flutter-apk/app-release.apk Twitter-video-0.33.0-arm64.apk
+        run: cp build/app/outputs/flutter-apk/app-release.apk Twitter-video-0.34.0-arm64.apk
       - name: Publish APK checksum
-        run: sha256sum Twitter-video-0.33.0-arm64.apk > Twitter-video-0.33.0-arm64.apk.sha256
+        run: sha256sum Twitter-video-0.34.0-arm64.apk > Twitter-video-0.34.0-arm64.apk.sha256
       - uses: actions/upload-artifact@v4
         with:
           name: Twitter-video-Android-ARM64
           path: |
-            Twitter-video-0.33.0-arm64.apk
-            Twitter-video-0.33.0-arm64.apk.sha256
+            Twitter-video-0.34.0-arm64.apk
+            Twitter-video-0.34.0-arm64.apk.sha256
           if-no-files-found: error
           retention-days: 30
       - name: Publish direct APK in GitHub Releases
@@ -63,12 +63,12 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          tag=v0.33.0
-          apk=Twitter-video-0.33.0-arm64.apk
+          tag=v0.34.0
+          apk=Twitter-video-0.34.0-arm64.apk
           if ! gh release view "$tag" >/dev/null 2>&1; then
             gh release create "$tag" --draft --target "$GITHUB_SHA" \
-              --title "Twitter vidéo 0.33.0" \
-              --notes "Export direct des diagnostics dans Téléchargements, purge après sauvegarde, recherche et découverte plus robustes, diagnostics techniques anonymisés."
+              --title "Twitter vidéo 0.34.0" \
+              --notes "Bouton son commun près de la barre de lecture, état audio partagé, réduction des reconstructions du fil, recherche X prioritaire et mémorisation de la méthode fonctionnelle, diagnostics audio et délais."
           fi
           for asset in "$apk" "$apk.sha256"; do
             uploaded=false

@@ -196,7 +196,7 @@ class MainScaffold extends ConsumerWidget {
             }
             navNotifier.setTab(MainTab.values[index]);
             if (index == 1) {
-              ref.invalidate(subscriptionListProvider);
+              ref.read(subscriptionListProvider.notifier).refresh();
             }
           },
           destinations: const [

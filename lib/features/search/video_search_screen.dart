@@ -116,6 +116,7 @@ class _VideoSearchScreenState extends ConsumerState<VideoSearchScreen> {
     }
 
     PrivacyDiagnostics.instance.record(DiagnosticEvent.searchStarted);
+    final searchClock = Stopwatch()..start();
     final requestVersion = _searchVersion;
     final cursor = _cursor;
 
@@ -153,15 +154,15 @@ class _VideoSearchScreenState extends ConsumerState<VideoSearchScreen> {
           response = await client.fetchTrendingMedia(
             query: text, sort: _sort, filters: const {MediaFilter.video},
             cursor: more ? cursor : null, count: 30,
-            timeoutSeconds: 12, reportErrors: true,
-          ).timeout(const Duration(seconds: 14));
+            timeoutSeconds: 10, reportErrors: true, interactive: true,
+          ).timeout(const Duration(seconds: 11));
           if (!more && videoSearchResults(response.tweets).isEmpty) {
             PrivacyDiagnostics.instance.record(DiagnosticEvent.searchNativeEmpty);
             if (_sort != FeedSort.latest) {
               response = await client.fetchTrendingMedia(
                 query: text, sort: FeedSort.latest, filters: const {MediaFilter.video},
-                count: 30, timeoutSeconds: 9, reportErrors: true,
-              ).timeout(const Duration(seconds: 11));
+                count: 30, timeoutSeconds: 7, reportErrors: true, interactive: true,
+              ).timeout(const Duration(seconds: 8));
               if (response.tweets.isNotEmpty && mounted && _searchVersion == requestVersion) {
                 setState(() => _sort = FeedSort.latest);
               }
@@ -210,7 +211,7 @@ class _VideoSearchScreenState extends ConsumerState<VideoSearchScreen> {
       PrivacyDiagnostics.instance.record(
           videos.isEmpty ? DiagnosticEvent.searchEmpty
               : DiagnosticEvent.searchFound,
-          resultCount: videos.length);
+          resultCount: videos.length, durationMs: searchClock.elapsedMilliseconds);
       if (cacheOnly) {
         PrivacyDiagnostics.instance.record(
             DiagnosticEvent.searchCacheFallback);
@@ -250,7 +251,8 @@ class _VideoSearchScreenState extends ConsumerState<VideoSearchScreen> {
             PrivacyDiagnostics.instance.record(
                 DiagnosticEvent.searchCacheFallback);
             PrivacyDiagnostics.instance.record(
-                DiagnosticEvent.searchFound, resultCount: accepted.length);
+                DiagnosticEvent.searchFound, resultCount: accepted.length,
+                durationMs: searchClock.elapsedMilliseconds);
             _warmupPlayers();
             return;
           }
@@ -258,7 +260,8 @@ class _VideoSearchScreenState extends ConsumerState<VideoSearchScreen> {
           // Keep the original error if the local database also fails.
         }
       }
-      PrivacyDiagnostics.instance.record(DiagnosticEvent.searchFailed);
+      PrivacyDiagnostics.instance.record(DiagnosticEvent.searchFailed,
+          durationMs: searchClock.elapsedMilliseconds);
       if (mounted) {
         setState(() => _error =
           'Recherche en ligne indisponible. Essaie un profil @compte, '

@@ -18,6 +18,7 @@ import '../../feed/persistent_fullscreen_provider.dart';
 import '../../diagnostics/privacy_diagnostics.dart';
 import '../video_ui_provider.dart';
 import 'video_seek_bar.dart';
+import 'video_audio_button.dart';
 import '../../cast/cast_video_button.dart';
 import '../../cast/cast_remote_controls.dart';
 
@@ -563,6 +564,7 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer> {
                                     children: [
                                       const MaterialPositionIndicator(),
                                       const Spacer(),
+                                      const VideoAudioButton(),
                                       // Private like: never sends X API calls.
                                       MaterialCustomButton(
                                         onPressed: () => unawaited(
@@ -682,7 +684,13 @@ class _TiktokMediaContainerState extends ConsumerState<TiktokMediaContainer> {
                   bottom: MediaQuery.paddingOf(context).bottom + 6,
                   left: 9,
                   right: 9,
-                  child: VideoSeekBar(player: instance.player),
+                  child: Row(
+                    children: [
+                      Expanded(child: VideoSeekBar(player: instance.player)),
+                      const SizedBox(width: 4),
+                      const VideoAudioButton(),
+                    ],
+                  ),
                 ),
             ],
           );

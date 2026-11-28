@@ -45,13 +45,18 @@ class TwitterClient {
   static final List<Completer<void>> _requestQueue = [];
   static int _subscriptionChunkIndex = 0;
   static String? _lastSubscribedQuery;
+  static (String, String)? _workingSearchOperation;
 
-  static Future<void> _waitForTurn() async {
+  static Future<void> _waitForTurn({bool interactive = false, Duration? maxWait}) async {
+    final clock = Stopwatch()..start();
     if (_rateLimitResetTime != null) {
       final now = DateTime.now();
       if (now.isBefore(_rateLimitResetTime!)) {
         final waitTime = _rateLimitResetTime!.difference(now);
         AppLogger.log('Rate limit active. Waiting ${waitTime.inSeconds}s...');
+        if (maxWait != null && waitTime >= maxWait) {
+          throw TimeoutException('X rate limit active');
+        }
         await Future.delayed(waitTime);
         _rateLimitResetTime = null;
       }
@@ -63,8 +68,21 @@ class TwitterClient {
     }
 
     final completer = Completer<void>();
-    _requestQueue.add(completer);
-    await completer.future;
+    if (interactive) {
+      _requestQueue.insert(0, completer);
+    } else {
+      _requestQueue.add(completer);
+    }
+    if (maxWait == null) {
+      await completer.future;
+    } else {
+      final remaining = maxWait - clock.elapsed;
+      await completer.future.timeout(remaining.isNegative ? Duration.zero : remaining,
+          onTimeout: () {
+        _requestQueue.remove(completer);
+        throw TimeoutException('X request queue timeout');
+      });
+    }
   }
 
   static void _releaseTurn() {
@@ -516,6 +534,7 @@ class TwitterClient {
     int? minFaves,
     int timeoutSeconds = 15,
     bool reportErrors = false,
+    bool interactive = false,
   }) async {
     String finalQuery = query ?? "";
 
@@ -582,10 +601,19 @@ class TwitterClient {
         _olderGraphqlSearchTimelineUriPath,
       ];
 
+      final attempts = <(String, String)>[
+        if (_workingSearchOperation != null) _workingSearchOperation!,
+        for (final path in operationPaths)
+          for (final method in const ['GET', 'POST'])
+            if ((path, method) != _workingSearchOperation) (path, method),
+      ];
+      final budget = Duration(seconds: timeoutSeconds);
+      final clock = Stopwatch()..start();
       int? lastStatus;
-      for (final path in operationPaths) {
+      for (final (path, method) in attempts) {
         final getUri = buildSearchTimelineUri(path);
-        for (final method in const ['GET', 'POST']) {
+        if (clock.elapsed >= budget) throw TimeoutException('X search deadline');
+        {
           _logTimelineRequest('fetchTrendingMedia', getUri, context: {
             'query': finalQuery,
             'method': method,
@@ -593,7 +621,7 @@ class TwitterClient {
             'cursor': cursor,
           });
 
-          await _waitForTurn();
+          await _waitForTurn(interactive: interactive, maxWait: budget - clock.elapsed);
           late final dynamic response;
           try {
             response = await TwitterAccount.fetch(
@@ -607,7 +635,7 @@ class TwitterClient {
                       'queryId': path.split('/')[2],
                     })
                   : null,
-            ).timeout(Duration(seconds: timeoutSeconds));
+            ).timeout(budget - clock.elapsed);
           } finally {
             // Always unblock other X requests even after network timeouts.
             _releaseTurn();
@@ -688,6 +716,7 @@ class TwitterClient {
             throw StateError('La structure du fil de recherche X '
                 'est incompatible avec cette version.');
           }
+          _workingSearchOperation = (path, method);
           return parsed;
         }
       }

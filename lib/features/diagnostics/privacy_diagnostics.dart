@@ -73,6 +73,9 @@ enum DiagnosticEvent {
   feedReserveEmpty,
   searchCancelled,
   searchTimeout,
+  audioMuted,
+  audioUnmuted,
+  audioApplyFailed,
   searchNativeUnavailable,
   searchNativeEmpty,
   searchPublicUnavailable,
@@ -316,7 +319,7 @@ class PrivacyDiagnostics extends ChangeNotifier {
     }
     return const JsonEncoder.withIndent('  ').convert({
       'format': 'twit_vid_anonymous_diagnostics_v1',
-      'app_version': '0.33.0',
+      'app_version': '0.34.0',
       'window_seconds': 300,
       'elapsed_seconds': ((now - origin).clamp(0, windowMs)) ~/ 1000,
       'event_count': _entries.length,

@@ -440,23 +440,27 @@ class FeedNotifier extends AsyncNotifier<FeedState> {
   @override
   FutureOr<FeedState> build() async {
     ref.keepAlive(); // Keep the video queue when visiting another tab.
-    final settings = ref.watch(settingsProvider);
-    if (!settings.isInitialized) {
+    final initialized = ref.watch(settingsProvider.select((s) => s.isInitialized));
+    final settings = ref.read(settingsProvider);
+    if (!initialized) {
       return FeedState(tweets: [], isRefreshing: true);
     }
     // Do not rebuild the entire asynchronous feed when tapping like/dislike:
     // it previously displayed a loading spinner and interrupted playback.
     final reactions = ref.read(localVideoReactionsProvider).value ??
         const <String, LocalVideoReaction>{};
-    final blockedHashtags = ref.watch(hashtagBlacklistProvider).value
+    ref.watch(hashtagBlacklistProvider.select((v) =>
+        (List<String>.of(v.value ?? const <String>[])..sort()).join('|')));
+    final blockedHashtags = ref.read(hashtagBlacklistProvider).value
         ?.toSet() ?? const <String>{};
-    ref.watch(hashtagListProvider);
+    ref.watch(hashtagListProvider.select((v) =>
+        (List<String>.of(v.value ?? const <String>[])..sort()).join('|')));
     // Ignore subscriptions loading flags, search, sort and view counters.
     // Only a change in the normalized local handles rebuilds the feed.
     ref.watch(subscriptionListProvider.select((current) =>
         localSubscriptionSignature(current.allSubscriptions)));
     final subscriptions = ref.read(subscriptionListProvider);
-    ref.watch(accountProvider);
+    ref.watch(accountProvider.select((a) => (a?.id, a?.restId, a?.authHeader)));
     final allowedHandles = localVideoHandles(subscriptions.allSubscriptions);
     // A user with likes, hashtags or watched videos can discover videos even
     // before following any creators. Empty subscription sets skip API sync.

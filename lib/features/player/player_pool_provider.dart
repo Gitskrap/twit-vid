@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'video_audio_provider.dart';
+import '../diagnostics/privacy_diagnostics.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
@@ -25,7 +26,7 @@ class PlayerPoolNotifier extends Notifier<Map<String, PlayerInstance>> {
     // even when the previous application session played with sound on.
     ref.listen(videoMutedProvider, (before, muted) {
       for (final instance in state.values) {
-        unawaited(instance.player.setVolume(muted ? 0 : 100));
+        unawaited(_applyVolume(instance.player, muted));
       }
     });
     ref.onDispose(() {
@@ -53,10 +54,19 @@ class PlayerPoolNotifier extends Notifier<Map<String, PlayerInstance>> {
     state = {...state, id: PlayerInstance(player, controller)};
   }
 
+  Future<void> _applyVolume(Player player, bool muted) async {
+    try {
+      await player.setVolume(muted ? 0 : 100);
+    } catch (_) {
+      PrivacyDiagnostics.instance.record(DiagnosticEvent.audioApplyFailed);
+    }
+  }
+
   Future<void> _prepare(Player player, String url, bool muted) async {
     try {
       await player.setVolume(muted ? 0 : 100);
       await player.open(Media(url), play: false);
+      if (ref.mounted) await _applyVolume(player, ref.read(videoMutedProvider));
     } catch (_) {
       // The visible player has its own timeout/retry. A disposed or failed
       // speculative player must never throw an unhandled async exception.

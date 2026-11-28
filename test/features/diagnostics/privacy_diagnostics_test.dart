@@ -21,7 +21,7 @@ void main() {
     recorder.record(DiagnosticEvent.searchStarted);
     expect(recorder.isRecording, true);
     expect(report()['event_count'], 1);
-    expect(report()['app_version'], '0.33.0');
+    expect(report()['app_version'], '0.34.0');
   });
 
   test('exports only the last five minutes using relative timestamps', () {
