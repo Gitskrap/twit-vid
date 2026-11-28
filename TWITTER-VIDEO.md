@@ -14,6 +14,11 @@ Non affilié à X Corp.
 
 ## Versions récentes
 
+### 0.34.0 — son et recherche (en validation)
+
+Bouton son commun près de la progression, y compris recherche, profils, hashtags, favoris et plein écran natif. Préférence partagée durant la session, muet au démarrage ; Cast conserve ses commandes distantes. Fil : observation de signatures stables des sources et de l'initialisation plutôt que de tous les réglages, rafraîchissement des abonnements sans invalidation. Recherche X : priorité aux demandes manuelles en attente, réutilisation du dernier couple méthode/opération valide, budget global pour chaque appel. Événements anonymes audio et durée de recherche. CI et validation réelle à confirmer.
+
+
 ### 0.33.0 — diagnostic direct et récupération des vidéos
 
 - Export JSON direct dans Téléchargements sur Android 10+, sans choix d'emplacement ; suppression des événements sauvegardés après succès seulement, collecte automatique maintenue.

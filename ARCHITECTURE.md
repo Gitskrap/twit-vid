@@ -68,3 +68,8 @@ Le préfixe de la file reste stable pendant les chargements ; ne réordonner que
 ## Conventions de reprise
 
 Lire [AGENTS.md](AGENTS.md), puis [RECOMMENDATIONS.md](RECOMMENDATIONS.md), [CAST.md](CAST.md), [DIAGNOSTICS.md](DIAGNOSTICS.md) ou [RELEASE.md](RELEASE.md) selon le domaine. Les versions publiées et limites sont dans [CHANGELOG.md](CHANGELOG.md) et [KNOWN_ISSUES.md](KNOWN_ISSUES.md). Les plans historiques dans docs/superpowers décrivent le fork d'origine, pas nécessairement le comportement actuel.
+
+
+## Évolution v0.34.0 (en validation)
+
+Le contrôle audio commun est dans video_audio_provider.dart et widgets/video_audio_button.dart, placé par media_container.dart hors des en-têtes des écrans. PlayerPoolNotifier applique l'état global et le relit après ouverture asynchrone. Le fil observe les signatures stables des abonnements/hashtags, la session et l'initialisation plutôt que l'ensemble des réglages UI ; les réglages réseau sont relus au chargement. Le client X mémorise la dernière méthode/opération de recherche valide et donne priorité aux demandes manuelles en attente, dans un budget de temps borné. Les demandes déjà en cours ne sont pas interrompues.

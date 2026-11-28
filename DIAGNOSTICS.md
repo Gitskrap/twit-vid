@@ -26,3 +26,8 @@ Erreurs réseau : enum fermé (auth HTTP 401/403, rate limit 429, serveur 500/50
 test/features/diagnostics/privacy_diagnostics_test.dart : démarrage auto, expiration, plafond, anonymat, restauration, purge après succès, conservation en cas d'échec, événements concurrents et persistance après redémarrage. Test manuel Android : sauvegarder deux fois, vérifier le dossier, redémarrer, vérifier que les anciens événements ne réapparaissent pas. Tester échec de stockage. La CI ne réalise pas ce test matériel.
 
 Ne jamais déposer de diagnostics utilisateur dans le dépôt public. Documenter les métriques agrégées et leur limite, pas les traces individuelles.
+
+
+## Évolution v0.34.0
+
+Événements fermés audioMuted, audioUnmuted, audioApplyFailed ; durées bucketées sur searchFound/searchFailed. Un changement de préférence ne garantit pas que la piste audio contient du son. Aucun identifiant ou donnée audio exportée.

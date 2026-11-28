@@ -21,3 +21,8 @@
 - Éviter qu'un build de documentation ou une relance arbitraire republie les assets d'une version existante ; utiliser [RELEASE.md](RELEASE.md).
 
 Ces pistes ne constituent pas des promesses de livraison. Attendre GO explicite du mainteneur avant une nouvelle série de modifications.
+
+
+## Rapport v0.33.0 et validation v0.34.0
+
+Un rapport de cinq minutes montre 3/3 recherches réussies, sept relevés de réserve à la cible, deux lots de découvertes à 20 auteurs ou plus, mais six initialisations du fil et une recherche à environ 7,4 s. Son en recherche signalé inaccessible (en-tête superposé). Les corrections v0.34.0 doivent être testées sur Android : son dans les cinq écrans, persistance sur swipe et plein écran, retour muet après relance, absence de réinitialisation de fil lors du changement d'onglet, délais de recherche et pagination. Aucun test physique encore confirmé. Les délais des services distants restent variables.

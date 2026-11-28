@@ -2,7 +2,10 @@
 
 Source : notes des [GitHub Releases](https://github.com/Gitskrap/twit-vid/releases), vérifiées le 28/11/2026. Les dates sont les dates UTC de publication. Les descriptions anciennes sont historiques et ne constituent pas les règles actuelles. Pour les versions antérieures à 0.16.0, voir [TWITTER-VIDEO.md](TWITTER-VIDEO.md) : il n'existe pas de release correspondante dans la liste vérifiée.
 
-## Non publié
+## Non publié — v0.34.0
+
+Bouton son commun près de la progression, y compris recherche, profils, hashtags, favoris et plein écran natif. Préférence partagée durant la session, muet au démarrage ; Cast conserve ses commandes distantes. Fil : observation de signatures stables des sources et de l'initialisation plutôt que de tous les réglages, rafraîchissement des abonnements sans invalidation. Recherche X : priorité aux demandes manuelles en attente, réutilisation du dernier couple méthode/opération valide, budget global pour chaque appel. Événements anonymes audio et durée de recherche. CI et validation réelle à confirmer.
+
 
 - Reprise documentaire : architecture, recommandations, Cast, diagnostics, limites, procédure de release et règles de maintenance. Aucun changement applicatif ni incrément de version.
 

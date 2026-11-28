@@ -46,3 +46,8 @@ Cible 30 vidéos en réserve, préchauffage courant + trois suivantes, maintenan
 Événements anonymes : feedReserveSample, feedReserveAtTarget, feedReserveBelowTarget, feedReserveEmpty, feedDistinctAuthors (fenêtre de 20 candidates), discoveryDistinctAuthors, discoveryTopicCount, discoveryCandidatesRejected, discoveryCacheFallback, discoveryProfileFallback, feedRepeatedCandidatesFiltered, feedNoFreshCandidates.
 
 Un bucket five_to_nineteen ne prouve pas une diversité suffisante ; les commandes Cast ne mesurent pas le temps réellement visionné sur TV. Voir [KNOWN_ISSUES.md](KNOWN_ISSUES.md). Tests : fresh_video_queue_test, similar_video_discovery_test, local_recommendation_profile_test, watched_video_recommendations_test, followed_hashtag_recommendations_test, hashtag_blacklist_test, viewed_video_ids_test, discovery_playback_persistence_test et feed_pagination_cursor_test. Tous sous test/ ; liste CI dans [RELEASE.md](RELEASE.md).
+
+
+## Évolution v0.34.0
+
+Le fil n'observe plus les modifications générales des réglages UI pour reconstruire la file ; il relit les réglages au chargement et conserve les dépendances de préférences/sources pertinentes. La cible de 30 et les filtres restent inchangés. Les paramètres de récupération sont appliqués aux prochains chargements ou à une actualisation explicite.

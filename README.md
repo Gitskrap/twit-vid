@@ -123,3 +123,8 @@ Dernière référence validée par GitHub Actions : v0.33.0, [run 46034662094](h
 Projet distribué sous licence **MIT**, voir [LICENSE](LICENSE). Fork de [XFlow](https://github.com/Alchemist-Aloha/xflow) ; une partie de la couche de connexion et de données provient également de [Squawker](https://github.com/j-fb/squawker). Merci aux contributeurs des projets d'origine.
 
 Les contributions et signalements de bugs sont bienvenus via les [issues GitHub](https://github.com/Gitskrap/twit-vid/issues).
+
+
+### v0.34.0 — code en validation
+
+Bouton son commun près de la progression, y compris recherche, profils, hashtags, favoris et plein écran natif. Préférence partagée durant la session, muet au démarrage ; Cast conserve ses commandes distantes. Fil : observation de signatures stables des sources et de l'initialisation plutôt que de tous les réglages, rafraîchissement des abonnements sans invalidation. Recherche X : priorité aux demandes manuelles en attente, réutilisation du dernier couple méthode/opération valide, budget global pour chaque appel. Événements anonymes audio et durée de recherche. CI et validation réelle à confirmer.
