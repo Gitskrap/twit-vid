@@ -14,6 +14,40 @@ Non affilié à X Corp.
 
 ## Versions récentes
 
+### 0.33.0 — diagnostic direct et récupération des vidéos
+
+- Export JSON direct dans Téléchargements sur Android 10+, sans choix d'emplacement ; suppression des événements sauvegardés après succès seulement, collecte automatique maintenue.
+- Catégories anonymes d'erreurs HTTP, disponibilité des sources, rejet des candidats et niveau de réserve.
+- Recherche : repli Latest lorsque pertinent, profils @compte, cache ; temporisation du service public sur 429/503.
+- Découverte : cache inédit correspondant aux thèmes et profils publics de créateurs précédemment aimés/regardés en secours. File conservée lors des changements d'onglet.
+- CI [46034662094](https://github.com/Gitskrap/twit-vid/actions/runs/46034662094) réussie ; APK et SHA-256 publiés. Validation réelle de la recherche et de l'export encore nécessaire.
+
+### 0.32.0 — contrôle Cast et recommandations
+
+- Barre de progression distante, lecture/pause TV, synchronisation par identifiant actif et sélection du téléphone vers le Cast.
+- Fin de média acceptée uniquement après lecture confirmée de la session correspondante ; sélection concurrente mise en attente.
+- Diversité sur six auteurs récents, thèmes élargis à douze, temps de visionnage pondéré, cache prioritaire et diagnostics de diversité.
+- CI [46030882795](https://github.com/Gitskrap/twit-vid/actions/runs/46030882795) réussie ; commandes Cast observées dans un rapport réel, enchaînement automatique non confirmé.
+
+### 0.31.0 — journal automatique
+
+- Fenêtre glissante de cinq minutes, maximum 4 000 événements, stockage privé et reprise au redémarrage, export sans démarrage manuel.
+- Publication en brouillon jusqu'à présence des deux assets, avec nouvelles tentatives en cas d'échec d'upload.
+- CI [45863079177](https://github.com/Gitskrap/twit-vid/actions/runs/45863079177) réussie.
+
+### 0.30.0 — favoris locaux
+
+- Onglet J’aime, grille de miniatures respectant le format, lecteur vertical, retrait d'un favori ; métadonnées protégées du nettoyage.
+- Certaines anciennes vidéos aimées peuvent manquer de métadonnées récupérables ; aucune promesse de lecture hors ligne.
+- Première publication incomplète (SHA-256 absent après erreur 422), puis relance CI réussie. Ne jamais contourner la vérification de l'intégrité.
+
+### 0.29.0 — réserve et préchargement
+
+- Cible 30 vidéos à venir, préchauffage des trois suivantes, détection des lectures bloquées, avance sécurisée, événements anonymes sur la latence et la réserve.
+- CI [45646453139](https://github.com/Gitskrap/twit-vid/actions/runs/45646453139) réussie.
+
+Les descriptions ci-dessous restent historiques ; pour le fonctionnement actuel, voir [ARCHITECTURE.md](ARCHITECTURE.md) et [CHANGELOG.md](CHANGELOG.md).
+
 ### 0.28.0 — fiabilité et renouvellement du fil principal
 - Le rechargement des abonnements ne réinitialise plus le fil tant que la liste de comptes n'a pas réellement changé.
 - Les vidéos de découverte sont conservées localement **avant** affichage ; leur lecture est mémorisée pour éviter qu'elles reviennent au prochain démarrage.

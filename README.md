@@ -4,8 +4,8 @@
 
 > **Dépôt GitHub :** `Gitskrap/twit-vid`  
 > **Nom sur le téléphone :** **Twitter vidéo**  
-> **Dernière version publiée vérifiée :** [v0.28.0](https://github.com/Gitskrap/twit-vid/releases/tag/v0.28.0)  
-> **Téléchargement Android :** [APK ARM64 signé](https://github.com/Gitskrap/twit-vid/releases/download/v0.28.0/Twitter-video-0.28.0-arm64.apk)
+> **Version de référence de cette documentation (vérifiée le 28/11/2026) :** [v0.33.0](https://github.com/Gitskrap/twit-vid/releases/tag/v0.33.0)  
+> **Téléchargement Android :** [APK ARM64 signé](https://github.com/Gitskrap/twit-vid/releases/download/v0.33.0/Twitter-video-0.33.0-arm64.apk)
 
 Ce projet est un **fork indépendant de [XFlow](https://github.com/Alchemist-Aloha/xflow)**. Il n'est ni développé ni approuvé par X Corp.
 
@@ -16,13 +16,14 @@ Ce projet est un **fork indépendant de [XFlow](https://github.com/Alchemist-Alo
 - **Vidéos de plus de 15 secondes uniquement** dans le fil principal ; les durées inconnues sont vérifiées par le lecteur lorsqu'il le peut.
 - **J’aime et Je n’aime pas privés à l’application** : aucune action de like/dislike envoyée au compte X. Un 👎 masque la vidéo et réduit les propositions similaires.
 - **Compteurs publics de X** : le nombre de J’aime affiché reste celui communiqué par X, et non celui des réactions locales.
+- **Onglet J’aime** : grille des vidéos aimées localement, accès au lecteur vertical et retrait des favoris. Les métadonnées aimées sont protégées du nettoyage du cache ; il ne s’agit pas de téléchargements hors ligne.
 - **Hashtags favoris et blacklist** : suivre un thème pour améliorer les recommandations, ou exclure les vidéos portant certains hashtags.
 - **Abonnements locaux** : ajouter ou retirer des comptes publics dans l'application sans les suivre sur X ; l'accès aux vidéos dépend toutefois des sources disponibles.
 - **Recherche de vidéos et de hashtags** : tentative par X, source publique de secours, puis résultats déjà présents dans le cache si le réseau ou les services échouent.
 - **Lecteur vertical** : défilement fluide, barre de progression manipulable, son coupé au démarrage, mode paysage et plein écran conservé lors du changement de vidéo.
 - **Diagnostic anonyme automatique** : journal local glissant, export volontaire des cinq dernières minutes, sans identifiants, comptes, abonnements, hashtags, recherches ni URL.
 - **Mises à jour intégrées** : après déverrouillage, l'application vérifie automatiquement les nouvelles GitHub Releases ; une page dans les paramètres permet aussi la vérification manuelle, le téléchargement avec progression et l'installation confirmée par Android. Les APK sont contrôlés par SHA-256 avant installation.
-- **Google Cast (bêta)** : envoi de la vidéo au téléviseur via un relais Wi-Fi local, contrôle du volume et tentative de lecture automatique de la suivante.
+- **Google Cast (bêta)** : relais Wi-Fi local, volume, lecture/pause, position distante, seek et synchronisation du téléphone avec la vidéo diffusée ; enchaînement automatique à valider sur un récepteur réel.
 - **Cache et historique locaux** : mémorisation des vidéos vues pour limiter les répétitions entre les sessions.
 
 Les fonctionnalités dépendant de X ou d'un service public tiers peuvent être limitées, interrompues ou retourner des résultats incomplets. L'enchaînement Cast reste à valider selon les téléviseurs et les formats vidéo.
@@ -38,7 +39,7 @@ Les rapports anonymes disposent de nouveaux événements techniques : `dislikeAd
 3. L'ouvrir sur un téléphone Android ARM64 et autoriser l'installation depuis cette source si Android le demande.
 4. Pour les prochaines mises à jour, installer le nouvel APK **par-dessus l'application existante** : le paquet Android et la signature doivent rester identiques.
 
-**Version actuelle :** [Twitter-video-0.28.0-arm64.apk](https://github.com/Gitskrap/twit-vid/releases/download/v0.28.0/Twitter-video-0.28.0-arm64.apk).
+**APK de référence :** [Twitter-video-0.33.0-arm64.apk](https://github.com/Gitskrap/twit-vid/releases/download/v0.33.0/Twitter-video-0.33.0-arm64.apk).
 
 L'accès à un compte X est facultatif pour les fonctions locales, mais certaines vidéos ou certaines recherches peuvent nécessiter une session X valide.
 
@@ -99,6 +100,23 @@ La génération **release** demande les informations de signature privée config
 Les J’aime, Je n’aime pas, abonnements et listes de hashtags sont conservés **localement** dans l'application. Les mots-clés utilisés pour récupérer les vidéos sont envoyés aux services de recherche sollicités ; ce n'est donc **pas** un mode de navigation totalement hors ligne. Le Cast peut transmettre le flux vidéo par le réseau local, sans dupliquer l'écran du téléphone.
 
 Le projet utilise des interfaces **non officielles** de X et peut être affecté par leurs restrictions, des liens vidéo temporaires ou les limites de Google Cast.
+
+## Reprendre le projet (développeur ou agent IA)
+
+Lire en premier [AGENTS.md](AGENTS.md), puis les documents ci-dessous. La référence technique est le code, pas une ancienne conversation ni une promesse de fonctionnalité.
+
+| Document | Contenu |
+| --- | --- |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Flux, navigation, stockage et responsabilités |
+| [RECOMMENDATIONS.md](RECOMMENDATIONS.md) | Signaux, pondérations, diversité et récupération |
+| [CAST.md](CAST.md) | État distant, commandes, relais et tests manuels |
+| [DIAGNOSTICS.md](DIAGNOSTICS.md) | Journal glissant, export, purge et anonymat |
+| [RELEASE.md](RELEASE.md) | CI, signature permanente, publication et mises à jour |
+| [KNOWN_ISSUES.md](KNOWN_ISSUES.md) | Limites observées, validations restantes et pistes |
+| [CHANGELOG.md](CHANGELOG.md) | Versions publiées et historique |
+| [TWITTER-VIDEO.md](TWITTER-VIDEO.md) | Historique détaillé, y compris les versions anciennes |
+
+Dernière référence validée par GitHub Actions : v0.33.0, [run 46034662094](https://github.com/Gitskrap/twit-vid/actions/runs/46034662094), APK et checksum présents. La réussite CI ne vaut pas validation sur un téléphone ou un Chromecast. Pour la dernière version disponible, consulter [Releases/latest](https://github.com/Gitskrap/twit-vid/releases/latest).
 
 ## Licence et crédits
 
